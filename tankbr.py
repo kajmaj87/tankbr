@@ -37,7 +37,9 @@ class PositionBox:
         else:
             self.pivoty = pivoty
 
-
+class Child:
+    def __init__(self, childId):
+        self.childId = childId
 
 class Renderable:
     def __init__(self, image):
@@ -53,10 +55,16 @@ class MovementProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
 
+    def move(self, move, position, rotation):
+        position.x += move.speed * math.sin(math.radians(rotation))
+        position.y += move.speed * math.cos(math.radians(rotation))
+
     def process(self):
         for ent, (move, position) in self.world.get_components(Move, PositionBox):
-            position.x += move.speed * math.sin(math.radians(position.rotation))
-            position.y += move.speed * math.cos(math.radians(position.rotation))
+            self.move(move, position, position.rotation)
+            for child in self.world.try_component(ent, Child):
+                for child_position in self.world.try_component(child.childId, PositionBox):
+                    self.move(move, child_position, position.rotation)
             self.world.remove_component(ent, Move)
 
 class RotationProcessor(esper.Processor):
@@ -66,6 +74,9 @@ class RotationProcessor(esper.Processor):
     def process(self):
         for ent, (rotate, position) in self.world.get_components(Rotate, PositionBox):
             position.rotation += rotate.angle
+            for child in self.world.try_component(ent, Child):
+                for child_position in self.world.try_component(child.childId, PositionBox):
+                    child_position.rotation += rotate.angle
             self.world.remove_component(ent, Rotate)
 
 class RenderProcessor(esper.Processor):
@@ -93,7 +104,6 @@ class RenderProcessor(esper.Processor):
     def process(self):
         # Clear the window:
         self.window.fill(self.clear_color)
-        # This will iterate over every Entity that has this Component, and blit it:
         for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
             pivot = pygame.math.Vector2(position.pivotx, position.pivoty)
             originalPosition = pygame.math.Vector2(position.x, position.y)
@@ -115,17 +125,22 @@ def run():
 
     # Initialize Esper world, and create a "player" Entity with a few Components.
     world = esper.World()
-    player = world.create_entity()
     bodyImage = pygame.image.load("assets/tank_body.png")
     gunImage = pygame.image.load("assets/tank_gun.png")
     
 
+    player = world.create_entity()
     world.add_component(player, Renderable(image=bodyImage))
     world.add_component(player, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=bodyImage.get_width(), h=bodyImage.get_height()))
-
+    
+    # TODO Ordering of rendering should be processed separetely, now it is based on declaration order
+    # Idea is to use a PreRenderingProcessor that would add Rendarable elements to components based on their zlevel that would run once
     gun = world.create_entity()
     world.add_component(gun, Renderable(image=gunImage))
-    world.add_component(gun, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y+10, w=gunImage.get_width(), h=gunImage.get_height(), pivoty=gunImage.get_height()*4/5))
+    # FIXME For now the gun and body must have the same center or they will diverge during rotation/moving
+    world.add_component(gun, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=gunImage.get_width(), h=gunImage.get_height()))
+   
+    world.add_component(player, Child(gun))
 
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
@@ -143,15 +158,13 @@ def run():
                     world.add_component(player, Rotate(angle=-3))
                 elif event.key == pygame.K_w:
                     world.add_component(player, Move(speed=-6))
-                    world.add_component(gun, Move(speed=-6))
                 elif event.key == pygame.K_s:
                     world.add_component(player, Move(speed=6))
-                    world.add_component(gun, Move(speed=6))
                 elif event.key == pygame.K_j:
                     world.add_component(gun, Rotate(angle=5))
                 elif event.key == pygame.K_l:
                     world.add_component(gun, Rotate(angle=-5))
-                elif event.key == pygame.K_ESCAPE:
+                elif event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
                     running = False
 
         # A single call to world.process() will update all Processors:
