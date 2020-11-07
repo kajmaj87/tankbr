@@ -14,8 +14,13 @@ RESOLUTION = 720, 480
 #  Define some Components:
 ##################################
 class Move:
-    def __init__(self, speed=0.0):
+    def __init__(self, distance=0.0):
+        self.distance = distance
+
+class Velocity:
+    def __init__(self, speed=0.0, angularSpeed=0.0):
         self.speed = speed
+        self.angularSpeed = angularSpeed
 
 class Rotate:
     def __init__(self, angle=0.0):
@@ -56,8 +61,8 @@ class MovementProcessor(esper.Processor):
         super().__init__()
 
     def move(self, move, position, rotation):
-        position.x += move.speed * math.sin(math.radians(rotation))
-        position.y += move.speed * math.cos(math.radians(rotation))
+        position.x += move.distance * math.sin(math.radians(rotation))
+        position.y += move.distance * math.cos(math.radians(rotation))
 
     def process(self):
         for ent, (move, position) in self.world.get_components(Move, PositionBox):
@@ -66,6 +71,16 @@ class MovementProcessor(esper.Processor):
                 for child_position in self.world.try_component(child.childId, PositionBox):
                     self.move(move, child_position, position.rotation)
             self.world.remove_component(ent, Move)
+
+# Velocity processor genarates move and rotate components
+class VelocityProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, velocity in self.world.get_component(Velocity):
+            self.world.add_component(ent,Move(velocity.speed))
+            self.world.add_component(ent,Rotate(velocity.angularSpeed))
 
 class RotationProcessor(esper.Processor):
     def __init__(self):
@@ -132,6 +147,7 @@ def run():
     player = world.create_entity()
     world.add_component(player, Renderable(image=bodyImage))
     world.add_component(player, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=bodyImage.get_width(), h=bodyImage.get_height()))
+    world.add_component(player, Velocity(speed=0, angularSpeed=0))
     
     # TODO Ordering of rendering should be processed separetely, now it is based on declaration order
     # Idea is to use a PreRenderingProcessor that would add Rendarable elements to components based on their zlevel that would run once
@@ -139,9 +155,11 @@ def run():
     world.add_component(gun, Renderable(image=gunImage))
     # FIXME For now the gun and body must have the same center or they will diverge during rotation/moving
     world.add_component(gun, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=gunImage.get_width(), h=gunImage.get_height()))
+    world.add_component(gun, Velocity(speed=0, angularSpeed=0))
    
     world.add_component(player, Child(gun))
 
+    world.add_processor(VelocityProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
     world.add_processor(RenderProcessor(window=window))
@@ -153,19 +171,26 @@ def run():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_a:
-                    world.add_component(player, Rotate(angle=3))
+                    world.component_for_entity(player, Velocity).angularSpeed = 3
                 elif event.key == pygame.K_d:
-                    world.add_component(player, Rotate(angle=-3))
+                    world.component_for_entity(player, Velocity).angularSpeed = -3
                 elif event.key == pygame.K_w:
-                    world.add_component(player, Move(speed=-6))
+                    world.component_for_entity(player, Velocity).speed = -6
                 elif event.key == pygame.K_s:
-                    world.add_component(player, Move(speed=6))
+                    world.component_for_entity(player, Velocity).speed = 6
                 elif event.key == pygame.K_j:
-                    world.add_component(gun, Rotate(angle=5))
+                    world.component_for_entity(gun, Velocity).angularSpeed = 5
                 elif event.key == pygame.K_l:
-                    world.add_component(gun, Rotate(angle=-5))
+                    world.component_for_entity(gun, Velocity).angularSpeed = -5
                 elif event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
                     running = False
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_w or event.key == pygame.K_s:
+                    world.component_for_entity(player, Velocity).speed = 0
+                elif event.key == pygame.K_d or event.key == pygame.K_a:
+                    world.component_for_entity(player, Velocity).angularSpeed = 0
+                elif event.key == pygame.K_j or event.key == pygame.K_l:
+                    world.component_for_entity(gun, Velocity).angularSpeed = 0
 
         # A single call to world.process() will update all Processors:
         world.process()
