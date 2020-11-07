@@ -3,6 +3,7 @@
 
 import pygame
 import esper
+import math
 
 
 FPS = 30
@@ -21,11 +22,22 @@ class Rotate:
     def __init__(self, angle=0.0):
         self.angle = angle
 
-class Position:
-    def __init__(self, x=0.0, y=0.0, rotation=0.0):
+class PositionBox:
+    def __init__(self, x=0.0, y=0.0, w=0.0, h=0.0, rotation=0.0, pivotx=None, pivoty=None):
         self.x = x
         self.y = y
+        self.w = w
+        self.h = h
         self.rotation = rotation
+        if pivotx is None:
+            self.pivotx = w/2
+        else:
+            self.pivotx = pivotx
+        if pivoty is None:
+            self.pivoty = h/2
+        else:
+            self.pivoty = pivoty
+
 
 
 class Renderable:
@@ -43,7 +55,8 @@ class MovementProcessor(esper.Processor):
         super().__init__()
 
     def process(self):
-        for ent, (move, position) in self.world.get_components(Move, Position):
+        for ent, (move, position) in self.world.get_components(Move, PositionBox):
+            # TODO Movement must take rotation into account
             position.x += move.x
             position.y += move.y
             self.world.remove_component(ent, Move)
@@ -53,7 +66,7 @@ class RotationProcessor(esper.Processor):
         super().__init__()
 
     def process(self):
-        for ent, (rotate, position) in self.world.get_components(Rotate, Position):
+        for ent, (rotate, position) in self.world.get_components(Rotate, PositionBox):
             position.rotation += rotate.angle
             self.world.remove_component(ent, Rotate)
 
@@ -63,12 +76,31 @@ class RenderProcessor(esper.Processor):
         self.window = window
         self.clear_color = clear_color
 
+    def blitRotate(self, surf, image, pos, originPos, angle):
+        # calcaulate the axis aligned bounding box of the rotated image
+        w, h         = image.get_size()
+        sin_a, cos_a = math.sin(math.radians(angle)), math.cos(math.radians(angle))
+        min_x, min_y = min([0, sin_a*h, cos_a*w, sin_a*h + cos_a*w]), max([0, sin_a*w, -cos_a*h, sin_a*w - cos_a*h])
+        # calculate the translation of the pivot
+        pivot        = pygame.math.Vector2(originPos[0], -originPos[1])
+        pivot_rotate = pivot.rotate(angle)
+        pivot_move   = pivot_rotate - pivot
+        # calculate the upper left origin of the rotated image
+        origin = (pos[0] - originPos[0] + min_x - pivot_move[0], pos[1] - originPos[1] - min_y + pivot_move[1])
+        # get a rotated image
+        rotated_image = pygame.transform.rotate(image, angle)
+        # rotate and blit the image
+        surf.blit(rotated_image, origin)
+
     def process(self):
         # Clear the window:
         self.window.fill(self.clear_color)
         # This will iterate over every Entity that has this Component, and blit it:
-        for ent, (rend, position) in self.world.get_components(Renderable, Position):
-            self.window.blit(pygame.transform.rotate(rend.image, position.rotation), (position.x, position.y))
+        for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
+            pivot = pygame.math.Vector2(position.pivotx, position.pivoty)
+            originalPosition = pygame.math.Vector2(position.x, position.y)
+            self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation)
+
         # Flip the framebuffers
         pygame.display.flip()
 
@@ -91,11 +123,11 @@ def run():
     
 
     world.add_component(player, Renderable(image=bodyImage))
-    world.add_component(player, Position(x=STARTING_POSITION_X, y=STARTING_POSITION_Y))
+    world.add_component(player, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=bodyImage.get_width(), h=bodyImage.get_height()))
 
     gun = world.create_entity()
     world.add_component(gun, Renderable(image=gunImage))
-    world.add_component(gun, Position(x=STARTING_POSITION_X + bodyImage.get_width()/2 - gunImage.get_width()/2, y=STARTING_POSITION_Y))
+    world.add_component(gun, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y+10, w=gunImage.get_width(), h=gunImage.get_height(), pivoty=gunImage.get_height()*4/5))
 
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
