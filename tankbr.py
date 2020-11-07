@@ -14,9 +14,8 @@ RESOLUTION = 720, 480
 #  Define some Components:
 ##################################
 class Move:
-    def __init__(self, x=0.0, y=0.0):
-        self.x = x
-        self.y = y
+    def __init__(self, speed=0.0):
+        self.speed = speed
 
 class Rotate:
     def __init__(self, angle=0.0):
@@ -56,9 +55,8 @@ class MovementProcessor(esper.Processor):
 
     def process(self):
         for ent, (move, position) in self.world.get_components(Move, PositionBox):
-            # TODO Movement must take rotation into account
-            position.x += move.x
-            position.y += move.y
+            position.x += move.speed * math.sin(math.radians(position.rotation))
+            position.y += move.speed * math.cos(math.radians(position.rotation))
             self.world.remove_component(ent, Move)
 
 class RotationProcessor(esper.Processor):
@@ -140,19 +138,19 @@ def run():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_a:
-                    world.add_component(player, Rotate(angle=-3))
-                elif event.key == pygame.K_d:
                     world.add_component(player, Rotate(angle=3))
+                elif event.key == pygame.K_d:
+                    world.add_component(player, Rotate(angle=-3))
                 elif event.key == pygame.K_w:
-                    world.add_component(player, Move(x=0, y=-6))
-                    world.add_component(gun, Move(x=0, y=-6))
+                    world.add_component(player, Move(speed=-6))
+                    world.add_component(gun, Move(speed=-6))
                 elif event.key == pygame.K_s:
-                    world.add_component(player, Move(x=0, y=6))
-                    world.add_component(gun, Move(x=0, y=6))
-                elif event.key == pygame.K_l:
-                    world.add_component(gun, Rotate(angle=-5))
+                    world.add_component(player, Move(speed=6))
+                    world.add_component(gun, Move(speed=6))
                 elif event.key == pygame.K_j:
                     world.add_component(gun, Rotate(angle=5))
+                elif event.key == pygame.K_l:
+                    world.add_component(gun, Rotate(angle=-5))
                 elif event.key == pygame.K_ESCAPE:
                     running = False
 
