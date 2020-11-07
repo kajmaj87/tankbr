@@ -12,15 +12,20 @@ RESOLUTION = 720, 480
 ##################################
 #  Define some Components:
 ##################################
-class Movement:
+class Move:
     def __init__(self, x=0.0, y=0.0):
         self.x = x
         self.y = y
 
+class Rotate:
+    def __init__(self, angle=0.0):
+        self.angle = angle
+
 class Position:
-    def __init__(self, x=0.0, y=0.0):
+    def __init__(self, x=0.0, y=0.0, rotation=0.0):
         self.x = x
         self.y = y
+        self.rotation = rotation
 
 
 class Renderable:
@@ -38,11 +43,19 @@ class MovementProcessor(esper.Processor):
         super().__init__()
 
     def process(self):
-        for ent, (move, position) in self.world.get_components(Movement, Position):
+        for ent, (move, position) in self.world.get_components(Move, Position):
             position.x += move.x
             position.y += move.y
-            self.world.remove_component(ent, Movement)
+            self.world.remove_component(ent, Move)
 
+class RotationProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, (rotate, position) in self.world.get_components(Rotate, Position):
+            position.rotation += rotate.angle
+            self.world.remove_component(ent, Rotate)
 
 class RenderProcessor(esper.Processor):
     def __init__(self, window, clear_color=(0, 0, 0)):
@@ -55,7 +68,7 @@ class RenderProcessor(esper.Processor):
         self.window.fill(self.clear_color)
         # This will iterate over every Entity that has this Component, and blit it:
         for ent, (rend, position) in self.world.get_components(Renderable, Position):
-            self.window.blit(rend.image, (position.x, position.y))
+            self.window.blit(pygame.transform.rotate(rend.image, position.rotation), (position.x, position.y))
         # Flip the framebuffers
         pygame.display.flip()
 
@@ -66,7 +79,7 @@ def run():
     # Initialize Pygame stuff
     pygame.init()
     window = pygame.display.set_mode(RESOLUTION)
-    pygame.display.set_caption("Esper Pygame example")
+    pygame.display.set_caption("Tankbr")
     clock = pygame.time.Clock()
     pygame.key.set_repeat(1, 1)
 
@@ -84,11 +97,9 @@ def run():
     world.add_component(gun, Renderable(image=gunImage))
     world.add_component(gun, Position(x=STARTING_POSITION_X + bodyImage.get_width()/2 - gunImage.get_width()/2, y=STARTING_POSITION_Y))
 
-    # Create some Processor instances, and asign them to be processed.
-    render_processor = RenderProcessor(window=window)
-    movement_processor = MovementProcessor()
-    world.add_processor(render_processor)
-    world.add_processor(movement_processor)
+    world.add_processor(MovementProcessor())
+    world.add_processor(RotationProcessor())
+    world.add_processor(RenderProcessor(window=window))
 
     running = True
     while running:
@@ -96,14 +107,20 @@ def run():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    world.add_component(player, Movement(x=-6, y=0))
-                elif event.key == pygame.K_RIGHT:
-                    world.add_component(player, Movement(x=6, y=0))
-                elif event.key == pygame.K_UP:
-                    world.add_component(player, Movement(x=0, y=-6))
-                elif event.key == pygame.K_DOWN:
-                    world.add_component(player, Movement(x=0, y=6))
+                if event.key == pygame.K_a:
+                    world.add_component(player, Rotate(angle=-3))
+                elif event.key == pygame.K_d:
+                    world.add_component(player, Rotate(angle=3))
+                elif event.key == pygame.K_w:
+                    world.add_component(player, Move(x=0, y=-6))
+                    world.add_component(gun, Move(x=0, y=-6))
+                elif event.key == pygame.K_s:
+                    world.add_component(player, Move(x=0, y=6))
+                    world.add_component(gun, Move(x=0, y=6))
+                elif event.key == pygame.K_l:
+                    world.add_component(gun, Rotate(angle=-5))
+                elif event.key == pygame.K_j:
+                    world.add_component(gun, Rotate(angle=5))
                 elif event.key == pygame.K_ESCAPE:
                     running = False
 
