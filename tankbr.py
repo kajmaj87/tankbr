@@ -12,18 +12,20 @@ RESOLUTION = 720, 480
 ##################################
 #  Define some Components:
 ##################################
-class Velocity:
+class Movement:
+    def __init__(self, x=0.0, y=0.0):
+        self.x = x
+        self.y = y
+
+class Position:
     def __init__(self, x=0.0, y=0.0):
         self.x = x
         self.y = y
 
 
 class Renderable:
-    def __init__(self, image, posx, posy, depth=0):
+    def __init__(self, image):
         self.image = image
-        self.depth = depth
-        self.x = posx
-        self.y = posy
         self.w = image.get_width()
         self.h = image.get_height()
 
@@ -32,25 +34,14 @@ class Renderable:
 #  Define some Processors:
 ################################
 class MovementProcessor(esper.Processor):
-    def __init__(self, minx, maxx, miny, maxy):
+    def __init__(self):
         super().__init__()
-        self.minx = minx
-        self.maxx = maxx
-        self.miny = miny
-        self.maxy = maxy
 
     def process(self):
-        # This will iterate over every Entity that has BOTH of these components:
-        for ent, (vel, rend) in self.world.get_components(Velocity, Renderable):
-            # Update the Renderable Component's position by it's Velocity:
-            rend.x += vel.x
-            rend.y += vel.y
-            # An example of keeping the sprite inside screen boundaries. Basically,
-            # adjust the position back inside screen boundaries if it tries to go outside:
-            rend.x = max(self.minx, rend.x)
-            rend.y = max(self.miny, rend.y)
-            rend.x = min(self.maxx - rend.w, rend.x)
-            rend.y = min(self.maxy - rend.h, rend.y)
+        for ent, (move, position) in self.world.get_components(Movement, Position):
+            position.x += move.x
+            position.y += move.y
+            self.world.remove_component(ent, Movement)
 
 
 class RenderProcessor(esper.Processor):
@@ -63,15 +54,14 @@ class RenderProcessor(esper.Processor):
         # Clear the window:
         self.window.fill(self.clear_color)
         # This will iterate over every Entity that has this Component, and blit it:
-        for ent, rend in self.world.get_component(Renderable):
-            self.window.blit(rend.image, (rend.x, rend.y))
+        for ent, (rend, position) in self.world.get_components(Renderable, Position):
+            self.window.blit(rend.image, (position.x, position.y))
         # Flip the framebuffers
         pygame.display.flip()
 
+STARTING_POSITION_X = 200
+STARTING_POSITION_Y = 200
 
-################################
-#  The main core of the program:
-################################
 def run():
     # Initialize Pygame stuff
     pygame.init()
@@ -83,15 +73,20 @@ def run():
     # Initialize Esper world, and create a "player" Entity with a few Components.
     world = esper.World()
     player = world.create_entity()
-    world.add_component(player, Velocity(x=0, y=0))
-    world.add_component(player, Renderable(image=pygame.image.load("assets/tank_gun.png"), posx=100, posy=100))
-    # Another motionless Entity:
-    enemy = world.create_entity()
-    world.add_component(enemy, Renderable(image=pygame.image.load("assets/tank_body.png"), posx=400, posy=250))
+    bodyImage = pygame.image.load("assets/tank_body.png")
+    gunImage = pygame.image.load("assets/tank_gun.png")
+    
+
+    world.add_component(player, Renderable(image=bodyImage))
+    world.add_component(player, Position(x=STARTING_POSITION_X, y=STARTING_POSITION_Y))
+
+    gun = world.create_entity()
+    world.add_component(gun, Renderable(image=gunImage))
+    world.add_component(gun, Position(x=STARTING_POSITION_X + bodyImage.get_width()/2 - gunImage.get_width()/2, y=STARTING_POSITION_Y))
 
     # Create some Processor instances, and asign them to be processed.
     render_processor = RenderProcessor(window=window)
-    movement_processor = MovementProcessor(minx=0, maxx=RESOLUTION[0], miny=0, maxy=RESOLUTION[1])
+    movement_processor = MovementProcessor()
     world.add_processor(render_processor)
     world.add_processor(movement_processor)
 
@@ -102,27 +97,15 @@ def run():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    # Here is a way to directly access a specific Entity's
-                    # Velocity Component's attribute (y) without making a
-                    # temporary variable.
-                    world.component_for_entity(player, Velocity).x = -6
+                    world.add_component(player, Movement(x=-6, y=0))
                 elif event.key == pygame.K_RIGHT:
-                    # For clarity, here is an alternate way in which a
-                    # temporary variable is created and modified. The previous
-                    # way above is recommended instead.
-                    player_velocity_component = world.component_for_entity(player, Velocity)
-                    player_velocity_component.x = 6
+                    world.add_component(player, Movement(x=6, y=0))
                 elif event.key == pygame.K_UP:
-                    world.component_for_entity(player, Velocity).y = -6
+                    world.add_component(player, Movement(x=0, y=-6))
                 elif event.key == pygame.K_DOWN:
-                    world.component_for_entity(player, Velocity).y = 6
+                    world.add_component(player, Movement(x=0, y=6))
                 elif event.key == pygame.K_ESCAPE:
                     running = False
-            elif event.type == pygame.KEYUP:
-                if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
-                    world.component_for_entity(player, Velocity).x = 0
-                if event.key in (pygame.K_UP, pygame.K_DOWN):
-                    world.component_for_entity(player, Velocity).y = 0
 
         # A single call to world.process() will update all Processors:
         world.process()
