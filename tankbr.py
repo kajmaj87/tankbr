@@ -199,10 +199,11 @@ class RenderProcessor(esper.Processor):
 
 
         font = pygame.font.Font(None, 20)
-        fps = font.render(str(int(self.clock.get_fps())), True, pygame.Color('white'))
+        fps = font.render("FPS: {} (update took: {} ms)".format(int(self.clock.get_fps()), self.clock.get_rawtime()), True, pygame.Color('white'))
         self.window.blit(fps, (10, 10))
         # Flip the framebuffers
         pygame.display.flip()
+        self.clock.tick(FPS)
 
 FPS = 30
 RESOLUTION = 720, 480
@@ -261,7 +262,6 @@ def run():
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
         world.process()
-        clock.tick(FPS)
 
 
 if __name__ == "__main__":
