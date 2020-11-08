@@ -24,6 +24,16 @@ class Rotate:
     def __init__(self, angle=0.0):
         self.angle = angle
 
+class MovementSteering:
+    def __init__(self, moveForwardKey, moveBackwardsKey):
+        self.moveForwardKey = moveForwardKey
+        self.moveBackwardsKey = moveBackwardsKey
+
+class RotationSteering:
+    def __init__(self, rotateLeftKey, rotateRightKey):
+        self.rotateLeftKey = rotateLeftKey
+        self.rotateRightKey = rotateRightKey
+
 class PositionBox:
     def __init__(self, x=0.0, y=0.0, w=0.0, h=0.0, rotation=0.0, pivotx=None, pivoty=None):
         self.x = x
@@ -43,6 +53,10 @@ class PositionBox:
 class Child:
     def __init__(self, childId):
         self.childId = childId
+
+class KeyboardEvents:
+    def __init__(self, events = None):
+        self.events = events
 
 class Renderable:
     def __init__(self, image):
@@ -91,6 +105,66 @@ class RotationProcessor(esper.Processor):
                 for child_position in self.world.try_component(child.childId, PositionBox):
                     child_position.rotation += rotate.angle
             self.world.remove_component(ent, Rotate)
+            
+class GameEndProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+        self.running = True
+
+    def isGameRunning(self):
+        return self.running
+
+    def process(self):
+        for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
+            for event in keyboardEvents.events:
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
+                        self.running = False
+
+class SteeringProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def steerRotation(self, entity, rotationSteering):
+        for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
+            for event in keyboardEvents.events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == rotationSteering.rotateLeftKey:
+                        self.world.component_for_entity(entity, Velocity).angularSpeed = ROTATION_SPEED
+                    elif event.key == rotationSteering.rotateRightKey:
+                        self.world.component_for_entity(entity, Velocity).angularSpeed = -ROTATION_SPEED
+                elif event.type == pygame.KEYUP and (event.key == rotationSteering.rotateLeftKey or event.key == rotationSteering.rotateRightKey):
+                        self.world.component_for_entity(entity, Velocity).angularSpeed = 0
+
+    def steerMovement(self, entity, movementSteering):
+        for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
+            for event in keyboardEvents.events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == movementSteering.moveForwardKey:
+                        self.world.component_for_entity(entity, Velocity).speed = -MOVEMENT_SPEED
+                    elif event.key == movementSteering.moveBackwardsKey:
+                        self.world.component_for_entity(entity, Velocity).speed = MOVEMENT_SPEED
+                elif event.type == pygame.KEYUP and (event.key == movementSteering.moveForwardKey or event.key == movementSteering.moveBackwardsKey):
+                    self.world.component_for_entity(entity, Velocity).speed = 0
+
+    def process(self):
+        for ent, (_, movementSteering) in self.world.get_components(Velocity, MovementSteering):
+            self.steerMovement(ent, movementSteering)
+        for ent, (_, rotationSteering) in self.world.get_components(Velocity, RotationSteering):
+            self.steerRotation(ent, rotationSteering)
+            
+class KeyboardEventProcessor(esper.Processor):
+    def __init__(self, eventsEntity):
+        super().__init__()
+        self.eventsEntity = eventsEntity
+
+    def process(self):
+        # FIXME Can be used to decouple further processors from pygame by mapping those events to other objects
+        self.world.component_for_entity(self.eventsEntity, KeyboardEvents).events = pygame.event.get()
+
+
 
 class RenderProcessor(esper.Processor):
     def __init__(self, window, clock, clear_color=(0, 0, 0)):
@@ -136,6 +210,9 @@ RESOLUTION = 720, 480
 STARTING_POSITION_X = 200
 STARTING_POSITION_Y = 200
 
+MOVEMENT_SPEED = 6
+ROTATION_SPEED = 3
+
 def run():
     # Initialize Pygame stuff
     pygame.init()
@@ -154,6 +231,8 @@ def run():
     world.add_component(player, Renderable(image=bodyImage))
     world.add_component(player, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=bodyImage.get_width(), h=bodyImage.get_height()))
     world.add_component(player, Velocity(speed=0, angularSpeed=0))
+    world.add_component(player, MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s))
+    world.add_component(player, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
     
     # TODO Ordering of rendering should be processed separetely, now it is based on declaration order
     # Idea is to use a PreRenderingProcessor that would add Rendarable elements to components based on their zlevel that would run once
@@ -162,45 +241,26 @@ def run():
     # FIXME For now the gun and body must have the same center or they will diverge during rotation/moving
     world.add_component(gun, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=gunImage.get_width(), h=gunImage.get_height()))
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
+    world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
    
     world.add_component(player, Child(gun))
 
+    events = world.create_entity()
+    world.add_component(events, KeyboardEvents())
+
+
+    gameEndProcessor = GameEndProcessor()
+    world.add_processor(KeyboardEventProcessor(events))
+    world.add_processor(SteeringProcessor())
+    world.add_processor(gameEndProcessor)
     world.add_processor(VelocityProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
     world.add_processor(RenderProcessor(window=window, clock=clock))
 
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_a:
-                    world.component_for_entity(player, Velocity).angularSpeed = 3
-                elif event.key == pygame.K_d:
-                    world.component_for_entity(player, Velocity).angularSpeed = -3
-                elif event.key == pygame.K_w:
-                    world.component_for_entity(player, Velocity).speed = -6
-                elif event.key == pygame.K_s:
-                    world.component_for_entity(player, Velocity).speed = 6
-                elif event.key == pygame.K_j:
-                    world.component_for_entity(gun, Velocity).angularSpeed = 3
-                elif event.key == pygame.K_l:
-                    world.component_for_entity(gun, Velocity).angularSpeed = -3
-                elif event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                    running = False
-            elif event.type == pygame.KEYUP:
-                if event.key == pygame.K_w or event.key == pygame.K_s:
-                    world.component_for_entity(player, Velocity).speed = 0
-                elif event.key == pygame.K_d or event.key == pygame.K_a:
-                    world.component_for_entity(player, Velocity).angularSpeed = 0
-                elif event.key == pygame.K_j or event.key == pygame.K_l:
-                    world.component_for_entity(gun, Velocity).angularSpeed = 0
-
+    while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
         world.process()
-
         clock.tick(FPS)
 
 
