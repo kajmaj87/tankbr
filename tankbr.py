@@ -32,6 +32,10 @@ class RotationSteering:
         self.rotateLeftKey = rotateLeftKey
         self.rotateRightKey = rotateRightKey
 
+class FiringSteering:
+    def __init__(self, fireGunKey):
+        self.fireGunKey = fireGunKey
+
 class PositionBox:
     def __init__(self, x=0.0, y=0.0, w=0.0, h=0.0, rotation=0.0, pivotx=None, pivoty=None):
         self.x = x
@@ -54,6 +58,18 @@ class PositionBox:
 class Solid:
     def __init__(self, collisionRadius):
         self.collisionRadius = collisionRadius
+
+class Explosive:
+    pass
+
+class Gun: 
+    def __init__(self, ammo):
+        self.ammo = ammo
+        self.reloadTimeLeft = 0
+        self.isLoaded = True
+
+class FireGun:
+    pass
 
 class Child:
     def __init__(self, childId):
@@ -83,6 +99,7 @@ class MovementProcessor(esper.Processor):
 
     def process(self):
         for ent, (move, position) in self.world.get_components(Move, PositionBox):
+            print("Moving for distance: {}".format(move.distance))
             self.move(move, position, position.rotation)
             for child in self.world.try_component(ent, Child):
                 for child_position in self.world.try_component(child.childId, PositionBox):
@@ -96,8 +113,10 @@ class VelocityProcessor(esper.Processor):
 
     def process(self):
         for ent, velocity in self.world.get_component(Velocity):
-            self.world.add_component(ent,Move(velocity.speed))
-            self.world.add_component(ent,Rotate(velocity.angularSpeed))
+            if velocity.speed != 0:
+                self.world.add_component(ent,Move(-velocity.speed))
+            if velocity.angularSpeed != 0:
+                self.world.add_component(ent,Rotate(velocity.angularSpeed))
 
 class RotationProcessor(esper.Processor):
     def __init__(self):
@@ -132,34 +151,69 @@ class SteeringProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
 
-    def steerRotation(self, entity, rotationSteering):
+    def registerKeyActions(self, entity, key, actionKeyDown = None, actionKeyUp = None):
         for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
             for event in keyboardEvents.events:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == rotationSteering.rotateLeftKey:
-                        self.world.component_for_entity(entity, Velocity).angularSpeed = ROTATION_SPEED
-                    elif event.key == rotationSteering.rotateRightKey:
-                        self.world.component_for_entity(entity, Velocity).angularSpeed = -ROTATION_SPEED
-                elif event.type == pygame.KEYUP and (event.key == rotationSteering.rotateLeftKey or event.key == rotationSteering.rotateRightKey):
-                        self.world.component_for_entity(entity, Velocity).angularSpeed = 0
+                if event.type == pygame.KEYDOWN and event.key == key and actionKeyDown is not None:
+                    actionKeyDown(entity)
+                elif event.type == pygame.KEYUP and event.key == key and actionKeyUp is not None:
+                    actionKeyUp(entity)
+
+    def steerRotation(self, entity, rotationSteering):
+        def setAngularSpeed(ent, speed):
+            self.world.component_for_entity(ent, Velocity).angularSpeed = speed
+        reset = lambda ent: setAngularSpeed(ent, 0)
+        left = lambda ent: setAngularSpeed(ent, ROTATION_SPEED)
+        right = lambda ent: setAngularSpeed(ent, -ROTATION_SPEED)
+        self.registerKeyActions(entity, rotationSteering.rotateLeftKey, left, reset)
+        self.registerKeyActions(entity, rotationSteering.rotateRightKey, right, reset)
 
     def steerMovement(self, entity, movementSteering):
-        for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
-            for event in keyboardEvents.events:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == movementSteering.moveForwardKey:
-                        self.world.component_for_entity(entity, Velocity).speed = -MOVEMENT_SPEED
-                    elif event.key == movementSteering.moveBackwardsKey:
-                        self.world.component_for_entity(entity, Velocity).speed = MOVEMENT_SPEED
-                elif event.type == pygame.KEYUP and (event.key == movementSteering.moveForwardKey or event.key == movementSteering.moveBackwardsKey):
-                    self.world.component_for_entity(entity, Velocity).speed = 0
+        def setSpeed(ent, speed):
+            self.world.component_for_entity(ent, Velocity).speed = speed
+        reset = lambda ent: setSpeed(ent, 0)
+        forward = lambda ent: setSpeed(ent, MOVEMENT_SPEED)
+        backwards = lambda ent: setSpeed(ent, -MOVEMENT_SPEED)
+        self.registerKeyActions(entity, movementSteering.moveForwardKey, forward, reset)
+        self.registerKeyActions(entity, movementSteering.moveBackwardsKey, backwards, reset)
+
+    def fireGun(self, entity, firingSteering):
+        self.registerKeyActions(entity, firingSteering.fireGunKey, lambda ent: self.world.add_component(ent, FireGun()))
 
     def process(self):
         for ent, (_, movementSteering) in self.world.get_components(Velocity, MovementSteering):
             self.steerMovement(ent, movementSteering)
         for ent, (_, rotationSteering) in self.world.get_components(Velocity, RotationSteering):
             self.steerRotation(ent, rotationSteering)
+        for ent, (_, firingSteering) in self.world.get_components(Gun, FiringSteering):
+            self.fireGun(ent, firingSteering)
 
+class FiringGunProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, (gun, fireGun, position) in self.world.get_components(Gun, FireGun, PositionBox):
+            if gun.isLoaded:
+                createBullet(self.world, position)
+                gun.isLoaded = False
+            self.world.remove_component(ent, FireGun)
+
+class GunReloadProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, gun in self.world.get_component(Gun):
+            # start loading gun if its not already loaded and has ammo left
+            if gun.ammo > 0 and not gun.isLoaded and gun.reloadTimeLeft == 0:
+                self.world.component_for_entity(ent, Gun).ammo = gun.ammo - 1
+                gun.reloadTimeLeft = GUN_LOADING_TIME
+            elif not gun.isLoaded and gun.reloadTimeLeft > 0:
+                gun.reloadTimeLeft -= 1
+                if gun.reloadTimeLeft == 0:
+                    gun.isLoaded = True
+            
 class CollisionProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
@@ -168,13 +222,28 @@ class CollisionProcessor(esper.Processor):
         pointDifference = math.pow(x0 - x1, 2) + math.pow(y0 - y1, 2)
         return math.pow(r0-r1, 2) <= pointDifference and pointDifference <= math.pow(r0+r1, 2)
 
+
+    def deleteWithChildren(self, entity):
+        for child in self.world.try_component(entity, Child):
+            self.world.delete_entity(child.childId)
+        self.world.delete_entity(entity)
+
+    def revertMoveOnCollision(self, entity):
+        for move in self.world.try_component(entity, Move):
+            print("Collision detected, reverting move: {}".format(move.distance))
+            move.distance *= -1
+
     def process(self):
         for entityA, (positionA, solidA) in self.world.get_components(PositionBox, Solid):
             for entityB, (positionB, solidB) in self.world.get_components(PositionBox, Solid):
                 if (entityA != entityB) and self.circlesCollide(positionA.x, positionA.y, solidA.collisionRadius,
                                        positionB.x, positionB.y, solidB.collisionRadius):
-                    self.world.delete_entity(entityA)
-                    self.world.delete_entity(entityB)
+                    if self.world.has_component(entityA, Explosive) or  self.world.has_component(entityB, Explosive):
+                        self.deleteWithChildren(entityA)
+                    else:
+                        self.revertMoveOnCollision(entityA)
+                        
+                        
             
 class KeyboardEventProcessor(esper.Processor):
     def __init__(self, eventsEntity):
@@ -245,9 +314,24 @@ RESOLUTION = 720, 480
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
 
+GUN_LOADING_TIME = 30
+BULLET_SPEED = 20
+BULLET_POSITION_OFFSET = 30
+
+def createBullet(world, position):
+    bullet = world.create_entity()
+    bulletImage = pygame.image.load("assets/bullet.png")
+    world.add_component(bullet, Solid(collisionRadius=10))
+    # Bullet needs to be offset not to kill own tank
+    dx, dy = -BULLET_POSITION_OFFSET * math.sin(math.radians(position.rotation)), -BULLET_POSITION_OFFSET * math.cos(math.radians(position.rotation))
+    world.add_component(bullet, PositionBox(x=position.x+dx, y=position.y+dy, w=bulletImage.get_width(), h=bulletImage.get_height(), rotation=position.rotation))
+    world.add_component(bullet, Renderable(image=bulletImage))
+    world.add_component(bullet, Velocity(speed=BULLET_SPEED, angularSpeed=0))
+    world.add_component(bullet, Explosive())
+
 def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlayer=False):
-    bodyImage = pygame.image.load("assets/tank_body.png")
-    gunImage = pygame.image.load("assets/tank_gun.png")
+    bodyImage = pygame.image.load("assets/tankBase.png")
+    gunImage = pygame.image.load("assets/tankTurret.png")
     bw, bh = bodyImage.get_width(), bodyImage.get_height()
 
     body = world.create_entity()
@@ -265,11 +349,13 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     world.add_component(gun, PositionBox(x=startx, y=starty, w=gunImage.get_width(), h=gunImage.get_height()))
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
     world.add_component(gun, Rotate(gunRotation))
+    world.add_component(gun, Gun(ammo=3))
 
     if isPlayer:
         world.add_component(body, MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s))
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
+        world.add_component(gun, FiringSteering(fireGunKey=pygame.K_SPACE))
    
     world.add_component(body, Child(gun))
 
@@ -299,6 +385,8 @@ def run():
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
     world.add_processor(VelocityProcessor())
+    world.add_processor(FiringGunProcessor())
+    world.add_processor(GunReloadProcessor())
     world.add_processor(RenderProcessor(window=window, clock=clock))
 
     while gameEndProcessor.isGameRunning():
