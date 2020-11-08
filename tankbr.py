@@ -167,11 +167,16 @@ class KeyboardEventProcessor(esper.Processor):
 
 
 class RenderProcessor(esper.Processor):
+
+    FRAME_AVG_SIZE = 100
+    
     def __init__(self, window, clock, clear_color=(0, 0, 0)):
         super().__init__()
         self.window = window
         self.clock = clock
         self.clear_color = clear_color
+        self.currentFrame = 0
+        self.lastFrameTimes = [0] * self.FRAME_AVG_SIZE
 
     def blitRotate(self, surf, image, pos, originPos, angle):
         # calcaulate the axis aligned bounding box of the rotated image
@@ -189,6 +194,12 @@ class RenderProcessor(esper.Processor):
         # rotate and blit the image
         surf.blit(rotated_image, origin)
 
+    def addRawTime(self, time):
+        self.lastFrameTimes[self.currentFrame % self.FRAME_AVG_SIZE] = time
+
+    def getRawTimeAvg(self):
+        return sum(self.lastFrameTimes)/self.FRAME_AVG_SIZE
+
     def process(self):
         # Clear the window:
         self.window.fill(self.clear_color)
@@ -199,10 +210,12 @@ class RenderProcessor(esper.Processor):
 
 
         font = pygame.font.Font(None, 20)
-        fps = font.render("FPS: {} (update took: {} ms)".format(int(self.clock.get_fps()), self.clock.get_rawtime()), True, pygame.Color('white'))
+        fps = font.render("FPS: {} (update took: {:.1f} ms (avg from {} FPS))".format(int(self.clock.get_fps()), self.getRawTimeAvg(), self.FRAME_AVG_SIZE), True, pygame.Color('white'))
         self.window.blit(fps, (10, 10))
         # Flip the framebuffers
         pygame.display.flip()
+        self.addRawTime(self.clock.get_rawtime())
+        self.currentFrame += 1
         self.clock.tick(FPS)
 
 FPS = 30
