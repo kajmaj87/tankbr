@@ -6,8 +6,6 @@ import esper
 import math
 
 
-FPS = 30
-RESOLUTION = 720, 480
 
 
 ##################################
@@ -95,9 +93,10 @@ class RotationProcessor(esper.Processor):
             self.world.remove_component(ent, Rotate)
 
 class RenderProcessor(esper.Processor):
-    def __init__(self, window, clear_color=(0, 0, 0)):
+    def __init__(self, window, clock, clear_color=(0, 0, 0)):
         super().__init__()
         self.window = window
+        self.clock = clock
         self.clear_color = clear_color
 
     def blitRotate(self, surf, image, pos, originPos, angle):
@@ -124,8 +123,15 @@ class RenderProcessor(esper.Processor):
             originalPosition = pygame.math.Vector2(position.x, position.y)
             self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation)
 
+
+        font = pygame.font.Font(None, 20)
+        fps = font.render(str(int(self.clock.get_fps())), True, pygame.Color('white'))
+        self.window.blit(fps, (10, 10))
         # Flip the framebuffers
         pygame.display.flip()
+
+FPS = 30
+RESOLUTION = 720, 480
 
 STARTING_POSITION_X = 200
 STARTING_POSITION_Y = 200
@@ -162,7 +168,7 @@ def run():
     world.add_processor(VelocityProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
-    world.add_processor(RenderProcessor(window=window))
+    world.add_processor(RenderProcessor(window=window, clock=clock))
 
     running = True
     while running:
@@ -179,9 +185,9 @@ def run():
                 elif event.key == pygame.K_s:
                     world.component_for_entity(player, Velocity).speed = 6
                 elif event.key == pygame.K_j:
-                    world.component_for_entity(gun, Velocity).angularSpeed = 5
+                    world.component_for_entity(gun, Velocity).angularSpeed = 3
                 elif event.key == pygame.K_l:
-                    world.component_for_entity(gun, Velocity).angularSpeed = -5
+                    world.component_for_entity(gun, Velocity).angularSpeed = -3
                 elif event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
                     running = False
             elif event.type == pygame.KEYUP:
