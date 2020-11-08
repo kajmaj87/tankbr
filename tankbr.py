@@ -230,7 +230,6 @@ class CollisionProcessor(esper.Processor):
 
     def revertMoveOnCollision(self, entity):
         for move in self.world.try_component(entity, Move):
-            print("Collision detected, reverting move: {}".format(move.distance))
             move.distance *= -1
 
     def process(self):
