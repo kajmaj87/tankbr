@@ -4,9 +4,7 @@
 import pygame
 import esper
 import math
-
-
-
+import random
 
 ##################################
 #  Define some Components:
@@ -221,11 +219,34 @@ class RenderProcessor(esper.Processor):
 FPS = 30
 RESOLUTION = 720, 480
 
-STARTING_POSITION_X = 200
-STARTING_POSITION_Y = 200
-
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
+
+def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlayer=False):
+    bodyImage = pygame.image.load("assets/tank_body.png")
+    gunImage = pygame.image.load("assets/tank_gun.png")
+
+    body = world.create_entity()
+    world.add_component(body, Renderable(image=bodyImage))
+    world.add_component(body, PositionBox(x=startx, y=starty, w=bodyImage.get_width(), h=bodyImage.get_height()))
+    world.add_component(body, Velocity(speed=0, angularSpeed=0))
+    world.add_component(body, Rotate(bodyRotation))
+    
+    # TODO Ordering of rendering should be processed separetely, now it is based on declaration order
+    # Idea is to use a PreRenderingProcessor that would add Rendarable elements to components based on their zlevel that would run once
+    gun = world.create_entity()
+    world.add_component(gun, Renderable(image=gunImage))
+    # FIXME For now the gun and body must have the same center or they will diverge during rotation/moving
+    world.add_component(gun, PositionBox(x=startx, y=starty, w=gunImage.get_width(), h=gunImage.get_height()))
+    world.add_component(gun, Velocity(speed=0, angularSpeed=0))
+    world.add_component(gun, Rotate(gunRotation))
+
+    if isPlayer:
+        world.add_component(body, MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s))
+        world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
+        world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
+   
+    world.add_component(body, Child(gun))
 
 def run():
     # Initialize Pygame stuff
@@ -237,39 +258,21 @@ def run():
 
     # Initialize Esper world, and create a "player" Entity with a few Components.
     world = esper.World()
-    bodyImage = pygame.image.load("assets/tank_body.png")
-    gunImage = pygame.image.load("assets/tank_gun.png")
-    
-
-    player = world.create_entity()
-    world.add_component(player, Renderable(image=bodyImage))
-    world.add_component(player, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=bodyImage.get_width(), h=bodyImage.get_height()))
-    world.add_component(player, Velocity(speed=0, angularSpeed=0))
-    world.add_component(player, MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s))
-    world.add_component(player, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
-    
-    # TODO Ordering of rendering should be processed separetely, now it is based on declaration order
-    # Idea is to use a PreRenderingProcessor that would add Rendarable elements to components based on their zlevel that would run once
-    gun = world.create_entity()
-    world.add_component(gun, Renderable(image=gunImage))
-    # FIXME For now the gun and body must have the same center or they will diverge during rotation/moving
-    world.add_component(gun, PositionBox(x=STARTING_POSITION_X, y=STARTING_POSITION_Y, w=gunImage.get_width(), h=gunImage.get_height()))
-    world.add_component(gun, Velocity(speed=0, angularSpeed=0))
-    world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-   
-    world.add_component(player, Child(gun))
-
     events = world.create_entity()
     world.add_component(events, KeyboardEvents())
 
+    for i in range(2):
+        createTank(world=world, startx=random.randint(100, RESOLUTION[0] - 100), starty=random.randint(100, RESOLUTION[1] - 100), bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+
+    createTank(world=world, startx=200, starty=200, bodyRotation=-90, gunRotation=0, isPlayer = True)
 
     gameEndProcessor = GameEndProcessor()
     world.add_processor(KeyboardEventProcessor(events))
     world.add_processor(SteeringProcessor())
     world.add_processor(gameEndProcessor)
-    world.add_processor(VelocityProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
+    world.add_processor(VelocityProcessor())
     world.add_processor(RenderProcessor(window=window, clock=clock))
 
     while gameEndProcessor.isGameRunning():
