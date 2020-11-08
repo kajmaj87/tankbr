@@ -48,6 +48,13 @@ class PositionBox:
         else:
             self.pivoty = pivoty
 
+    def getCenter(self):
+        return (self.x - self.w)/2, (self.y - self.h)/2
+
+class Solid:
+    def __init__(self, collisionRadius):
+        self.collisionRadius = collisionRadius
+
 class Child:
     def __init__(self, childId):
         self.childId = childId
@@ -152,6 +159,22 @@ class SteeringProcessor(esper.Processor):
             self.steerMovement(ent, movementSteering)
         for ent, (_, rotationSteering) in self.world.get_components(Velocity, RotationSteering):
             self.steerRotation(ent, rotationSteering)
+
+class CollisionProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def circlesCollide(self, x0, y0, r0, x1, y1, r1):
+        pointDifference = math.pow(x0 - x1, 2) + math.pow(y0 - y1, 2)
+        return math.pow(r0-r1, 2) <= pointDifference and pointDifference <= math.pow(r0+r1, 2)
+
+    def process(self):
+        for entityA, (positionA, solidA) in self.world.get_components(PositionBox, Solid):
+            for entityB, (positionB, solidB) in self.world.get_components(PositionBox, Solid):
+                if (entityA != entityB) and self.circlesCollide(positionA.x, positionA.y, solidA.collisionRadius,
+                                       positionB.x, positionB.y, solidB.collisionRadius):
+                    self.world.delete_entity(entityA)
+                    self.world.delete_entity(entityB)
             
 class KeyboardEventProcessor(esper.Processor):
     def __init__(self, eventsEntity):
@@ -225,10 +248,12 @@ ROTATION_SPEED = 3
 def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlayer=False):
     bodyImage = pygame.image.load("assets/tank_body.png")
     gunImage = pygame.image.load("assets/tank_gun.png")
+    bw, bh = bodyImage.get_width(), bodyImage.get_height()
 
     body = world.create_entity()
     world.add_component(body, Renderable(image=bodyImage))
-    world.add_component(body, PositionBox(x=startx, y=starty, w=bodyImage.get_width(), h=bodyImage.get_height()))
+    world.add_component(body, Solid(collisionRadius=30)) # math.sqrt(bw*bw + bh*bh)))
+    world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
     world.add_component(body, Velocity(speed=0, angularSpeed=0))
     world.add_component(body, Rotate(bodyRotation))
     
@@ -261,8 +286,8 @@ def run():
     events = world.create_entity()
     world.add_component(events, KeyboardEvents())
 
-    for i in range(2):
-        createTank(world=world, startx=random.randint(100, RESOLUTION[0] - 100), starty=random.randint(100, RESOLUTION[1] - 100), bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+    createTank(world=world, startx=400, starty=100, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+    createTank(world=world, startx=600, starty=400, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
 
     createTank(world=world, startx=200, starty=200, bodyRotation=-90, gunRotation=0, isPlayer = True)
 
@@ -270,6 +295,7 @@ def run():
     world.add_processor(KeyboardEventProcessor(events))
     world.add_processor(SteeringProcessor())
     world.add_processor(gameEndProcessor)
+    world.add_processor(CollisionProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
     world.add_processor(VelocityProcessor())
