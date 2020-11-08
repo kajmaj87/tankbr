@@ -252,7 +252,7 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
 
     body = world.create_entity()
     world.add_component(body, Renderable(image=bodyImage))
-    world.add_component(body, Solid(collisionRadius=30)) # math.sqrt(bw*bw + bh*bh)))
+    world.add_component(body, Solid(collisionRadius=math.sqrt(bw*bw + bh*bh)/2 * 0.7)) # may overlap a little sometimes
     world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
     world.add_component(body, Velocity(speed=0, angularSpeed=0))
     world.add_component(body, Rotate(bodyRotation))
