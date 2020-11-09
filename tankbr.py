@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Next steps:
+# - [ ] Separate Gun and change child to Mount (mount just moves around with parent)
+# - [ ] Change all Move, Rotate etc to Commands
+# - [ ] Create RotateGun command
+
 import pygame
 import esper
 import math
@@ -36,6 +41,14 @@ class FiringSteering:
     def __init__(self, fireGunKey):
         self.fireGunKey = fireGunKey
 
+class AI:
+    pass
+
+class Decision:
+    def __init__(self, commands, timeout=1):
+        self.commands = commands
+        self.timeout = timeout
+
 class PositionBox:
     def __init__(self, x=0.0, y=0.0, w=0.0, h=0.0, rotation=0.0, pivotx=None, pivoty=None):
         self.x = x
@@ -63,7 +76,8 @@ class Explosive:
     pass
 
 class Gun: 
-    def __init__(self, ammo):
+    def __init__(self, gunEntity, ammo):
+        self.gunEntity = gunEntity
         self.ammo = ammo
         self.reloadTimeLeft = 0
         self.isLoaded = True
@@ -99,7 +113,6 @@ class MovementProcessor(esper.Processor):
 
     def process(self):
         for ent, (move, position) in self.world.get_components(Move, PositionBox):
-            print("Moving for distance: {}".format(move.distance))
             self.move(move, position, position.rotation)
             for child in self.world.try_component(ent, Child):
                 for child_position in self.world.try_component(child.childId, PositionBox):
@@ -195,7 +208,7 @@ class FiringGunProcessor(esper.Processor):
     def process(self):
         for ent, (gun, fireGun, position) in self.world.get_components(Gun, FireGun, PositionBox):
             if gun.isLoaded:
-                createBullet(self.world, position)
+                createBullet(self.world, self.world.component_for_entity(gun.gunEntity, PositionBox))
                 gun.isLoaded = False
             self.world.remove_component(ent, FireGun)
 
@@ -241,8 +254,29 @@ class CollisionProcessor(esper.Processor):
                         self.deleteWithChildren(entityA)
                     else:
                         self.revertMoveOnCollision(entityA)
-                        
-                        
+
+class AIProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+    def process(self):
+        for ent, (ai, position) in self.world.get_components(AI, PositionBox):
+            if not self.world.has_component(ent, Decision):
+                if random.random()>0.3:
+                    self.world.add_component(ent, Decision( commands=[Move(random.randint(-2,3)), Rotate(random.randint(-3,3))], timeout=30))
+                else:
+                    self.world.add_component(ent, Decision( commands=[FireGun()], timeout=10))
+
+class DecisionProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+    def process(self):
+        for ent, (position, decisions) in self.world.get_components(PositionBox, Decision):
+            for command in decisions.commands:
+                self.world.add_component(ent, command)
+            decisions.timeout -= 1
+            if decisions.timeout <= 0:
+                self.world.remove_component(ent, Decision)
+            
             
 class KeyboardEventProcessor(esper.Processor):
     def __init__(self, eventsEntity):
@@ -297,6 +331,9 @@ class RenderProcessor(esper.Processor):
             originalPosition = pygame.math.Vector2(position.x, position.y)
             self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation)
 
+        for ent, (gun, position) in self.world.get_components(Gun, PositionBox):
+            sin_a, cos_a = -math.sin(math.radians(position.rotation)), -math.cos(math.radians(position.rotation))
+            # pygame.draw.line(self.window, pygame.Color(255, 0, 0), (position.x, position.y), (position.x+LASER_RANGE*sin_a, position.y+LASER_RANGE*cos_a), 2)
 
         font = pygame.font.Font(None, 20)
         fps = font.render("FPS: {} (update took: {:.1f} ms (avg from {} FPS))".format(int(self.clock.get_fps()), self.getRawTimeAvg(), self.FRAME_AVG_SIZE), True, pygame.Color('white'))
@@ -315,7 +352,9 @@ ROTATION_SPEED = 3
 
 GUN_LOADING_TIME = 30
 BULLET_SPEED = 20
-BULLET_POSITION_OFFSET = 30
+BULLET_POSITION_OFFSET = 36
+
+LASER_RANGE = 300
 
 def createBullet(world, position):
     bullet = world.create_entity()
@@ -348,13 +387,16 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     world.add_component(gun, PositionBox(x=startx, y=starty, w=gunImage.get_width(), h=gunImage.get_height()))
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
     world.add_component(gun, Rotate(gunRotation))
-    world.add_component(gun, Gun(ammo=3))
+    world.add_component(body, Gun(gun, ammo=3))
 
     if isPlayer:
         world.add_component(body, MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s))
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
         world.add_component(gun, FiringSteering(fireGunKey=pygame.K_SPACE))
+    else:
+        world.add_component(body, AI())
+
    
     world.add_component(body, Child(gun))
 
@@ -371,14 +413,20 @@ def run():
     events = world.create_entity()
     world.add_component(events, KeyboardEvents())
 
-    createTank(world=world, startx=400, starty=100, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
-    createTank(world=world, startx=600, starty=400, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
 
     createTank(world=world, startx=200, starty=200, bodyRotation=-90, gunRotation=0, isPlayer = True)
+
+    for i in range(20):
+        createTank(world=world, startx=random.randint(0,750), starty=random.randint(0,500), bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+
+    createTank(world=world, startx=400, starty=100, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+    createTank(world=world, startx=600, starty=400, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
 
     gameEndProcessor = GameEndProcessor()
     world.add_processor(KeyboardEventProcessor(events))
     world.add_processor(SteeringProcessor())
+    world.add_processor(AIProcessor())
+    world.add_processor(DecisionProcessor())
     world.add_processor(gameEndProcessor)
     world.add_processor(CollisionProcessor())
     world.add_processor(MovementProcessor())
