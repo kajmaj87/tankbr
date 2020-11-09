@@ -332,8 +332,9 @@ class RenderProcessor(esper.Processor):
             self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation)
 
         for ent, (gun, position) in self.world.get_components(Gun, PositionBox):
-            sin_a, cos_a = -math.sin(math.radians(position.rotation)), -math.cos(math.radians(position.rotation))
-            # pygame.draw.line(self.window, pygame.Color(255, 0, 0), (position.x, position.y), (position.x+LASER_RANGE*sin_a, position.y+LASER_RANGE*cos_a), 2)
+            gunPosition = self.world.component_for_entity(gun.gunEntity, PositionBox)
+            sin_a, cos_a = -math.sin(math.radians(gunPosition.rotation)), -math.cos(math.radians(gunPosition.rotation))
+            pygame.draw.line(self.window, pygame.Color(255, 0, 0), (gunPosition.x, gunPosition.y), (gunPosition.x+LASER_RANGE*sin_a, gunPosition.y+LASER_RANGE*cos_a), 2)
 
         font = pygame.font.Font(None, 20)
         fps = font.render("FPS: {} (update took: {:.1f} ms (avg from {} FPS))".format(int(self.clock.get_fps()), self.getRawTimeAvg(), self.FRAME_AVG_SIZE), True, pygame.Color('white'))
