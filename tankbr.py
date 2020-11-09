@@ -392,8 +392,8 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     if isPlayer:
         world.add_component(body, MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s))
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
+        world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-        world.add_component(gun, FiringSteering(fireGunKey=pygame.K_SPACE))
     else:
         world.add_component(body, AI())
 
