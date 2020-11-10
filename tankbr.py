@@ -82,6 +82,11 @@ class Gun:
         self.reloadTimeLeft = 0
         self.isLoaded = True
 
+class RangeFinder:
+    def __init__(self, maxRange, angleOffset):
+        self.maxRange = maxRange
+        self.angleOffset = angleOffset
+
 class FireGun:
     pass
 
@@ -226,6 +231,36 @@ class GunReloadProcessor(esper.Processor):
                 gun.reloadTimeLeft -= 1
                 if gun.reloadTimeLeft == 0:
                     gun.isLoaded = True
+
+class RangeFindingProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, (position, finder) in self.world.get_components(PositionBox, RangeFinder):
+            targets = []
+            for target, (targetPosition, solid) in self.world.get_components(PositionBox, Solid):
+                if position.x == targetPosition.x:
+                    break
+                # nice calculation at: https://mathworld.wolfram.com/Circle-LineIntersection.html#:~:text=In%20geometry%2C%20a%20line%20meeting,429).
+                x1, y1 = position.x, position.y
+                x2, y2 = x1 + finder.maxRange*math.sin(finder.angleOffset + position.rotation), y1 + finder.maxRange*math.cos(finder.angleOffset + position.rotation)#targetPosition.x, targetPosition.y
+                x1, y1, x2, y2 = x1 - targetPosition.x, y1 - targetPosition.y, x2 - targetPosition.x, y2 - targetPosition.y
+                dr_square = math.pow(x1 - x2, 2) +  math.pow(y1 - y2, 2)
+                D = x1*y2 - x2*y1
+                delta = math.pow(solid.collisionRadius,2) * dr_square - math.pow(D, 2)
+                # we have direct hit and it is in range of finder
+                if delta>0 and (math.pow(position.x-targetPosition.x,2)+math.pow(position.y-targetPosition.y,2) < math.pow(finder.maxRange, 2)):
+                    targets.append(targetPosition)
+            finder.foundTargets = targets
+            if len(targets) > 0:
+                finder.closestTarget = min(targets, key=lambda targetPosition: math.pow(position.x - targetPosition.x,2) + math.pow(position.y - targetPosition.y, 2))
+                self.world.add_component(ent, Renderable(image=pygame.image.load("assets/redsquare.png")))
+            else:
+                finder.closestTarget = None
+                if self.world.has_component(ent, Renderable):
+                    self.world.remove_component(ent, Renderable)
+
             
 class CollisionProcessor(esper.Processor):
     def __init__(self):
@@ -388,6 +423,7 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     world.add_component(gun, PositionBox(x=startx, y=starty, w=gunImage.get_width(), h=gunImage.get_height()))
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
     world.add_component(gun, Rotate(gunRotation))
+    world.add_component(gun, RangeFinder(maxRange=300, angleOffset=0))
     world.add_component(body, Gun(gun, ammo=3))
 
     if isPlayer:
@@ -395,8 +431,8 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-    else:
-        world.add_component(body, AI())
+#    else:
+#        world.add_component(body, AI())
 
    
     world.add_component(body, Child(gun))
@@ -417,11 +453,11 @@ def run():
 
     createTank(world=world, startx=200, starty=200, bodyRotation=-90, gunRotation=0, isPlayer = True)
 
-    for i in range(20):
-        createTank(world=world, startx=random.randint(0,750), starty=random.randint(0,500), bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+    for i in range(0):
+        createTank(world=world, startx=random.randint(0,750), starty=random.randint(0,500), bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359))
 
-    createTank(world=world, startx=400, starty=100, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
-    createTank(world=world, startx=600, starty=400, bodyRotation=random.randint(0,359), gunRotation=random.randint(0,359), isPlayer = False)
+    createTank(world=world, startx=400, starty=100, bodyRotation=0, gunRotation=90)
+    createTank(world=world, startx=600, starty=400, bodyRotation=0, gunRotation=0)
 
     gameEndProcessor = GameEndProcessor()
     world.add_processor(KeyboardEventProcessor(events))
@@ -432,6 +468,7 @@ def run():
     world.add_processor(CollisionProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
+    world.add_processor(RangeFindingProcessor())
     world.add_processor(VelocityProcessor())
     world.add_processor(FiringGunProcessor())
     world.add_processor(GunReloadProcessor())
