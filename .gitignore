@@ -1,2 +1,5 @@
 .tankbr
 .env
+.hypothesis/
+__pycache__/
+tags

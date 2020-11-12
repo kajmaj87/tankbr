@@ -286,16 +286,13 @@ class RangeFindingProcessor(esper.Processor):
         for ent, (position, finder) in self.world.get_components(PositionBox, RangeFinder):
             targets = []
             for target, (targetPosition, solid) in self.world.get_components(PositionBox, Solid):
-                if position.x == targetPosition.x:
+                if position.x == targetPosition.x and position.y == targetPosition.y:
                     break
                 # nice calculation at:
                 #   https://mathworld.wolfram.com/Circle-LineIntersection.html#:~:text=In%20geometry%2C%20a%20line%20meeting,429).
                 x1, y1 = position.x, position.y
-                x2, y2 = x1 + finder.maxRange * math.sin(
-                    finder.angleOffset + position.rotation
-                ), y1 + finder.maxRange * math.cos(
-                    finder.angleOffset + position.rotation
-                )  # targetPosition.x, targetPosition.y
+                x2 = x1 + finder.maxRange * math.cos(finder.angleOffset + position.rotation)
+                y2 = y1 + finder.maxRange * math.sin(finder.angleOffset + position.rotation)
                 x1, y1, x2, y2 = (
                     x1 - targetPosition.x,
                     y1 - targetPosition.y,
@@ -306,10 +303,7 @@ class RangeFindingProcessor(esper.Processor):
                 D = x1 * y2 - x2 * y1
                 delta = math.pow(solid.collisionRadius, 2) * dr_square - math.pow(D, 2)
                 # we have direct hit and it is in range of finder
-                if delta > 0 and (
-                    math.pow(position.x - targetPosition.x, 2) + math.pow(position.y - targetPosition.y, 2)
-                    < math.pow(finder.maxRange, 2)
-                ):
+                if delta > 0:
                     targets.append(targetPosition)
             finder.foundTargets = targets
             if len(targets) > 0:
