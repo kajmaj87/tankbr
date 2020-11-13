@@ -131,8 +131,8 @@ class MovementProcessor(esper.Processor):
         super().__init__()
 
     def move(self, move, position, rotation):
-        position.x += move.distance * math.sin(math.radians(rotation))
-        position.y += move.distance * math.cos(math.radians(rotation))
+        position.x += move.distance * math.cos(math.radians(rotation))
+        position.y += move.distance * math.sin(math.radians(rotation))
 
     def process(self):
         for ent, (move, position) in self.world.get_components(Move, PositionBox):
@@ -151,7 +151,7 @@ class VelocityProcessor(esper.Processor):
     def process(self):
         for ent, velocity in self.world.get_component(Velocity):
             if velocity.speed != 0:
-                self.world.add_component(ent, Move(-velocity.speed))
+                self.world.add_component(ent, Move(velocity.speed))
             if velocity.angularSpeed != 0:
                 self.world.add_component(ent, Rotate(velocity.angularSpeed))
 
@@ -183,7 +183,7 @@ class GameEndProcessor(esper.Processor):
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
+                    if event.key == pygame.K_ESCAPE:
                         self.running = False
 
 
@@ -444,18 +444,18 @@ class RenderProcessor(esper.Processor):
         for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
             pivot = pygame.math.Vector2(position.pivotx, position.pivoty)
             originalPosition = pygame.math.Vector2(position.x, position.y)
-            self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation)
+            self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation + 90)
 
         for ent, (gun, position) in self.world.get_components(Gun, PositionBox):
             gunPosition = self.world.component_for_entity(gun.gunEntity, PositionBox)
-            sin_a, cos_a = -math.sin(math.radians(gunPosition.rotation)), -math.cos(math.radians(gunPosition.rotation))
+            sin_a, cos_a = math.sin(math.radians(gunPosition.rotation)), math.cos(math.radians(gunPosition.rotation))
             pygame.draw.line(
                 self.window,
                 pygame.Color(255, 0, 0),
                 (gunPosition.x, gunPosition.y),
                 (
-                    gunPosition.x + LASER_RANGE * sin_a,
-                    gunPosition.y + LASER_RANGE * cos_a,
+                    gunPosition.x + LASER_RANGE * cos_a,
+                    gunPosition.y + LASER_RANGE * sin_a,
                 ),
                 2,
             )
@@ -495,8 +495,8 @@ def createBullet(world, position):
     world.add_component(bullet, Solid(collisionRadius=10))
     # Bullet needs to be offset not to kill own tank
     dx, dy = (
-        -BULLET_POSITION_OFFSET * math.sin(math.radians(position.rotation)),
-        -BULLET_POSITION_OFFSET * math.cos(math.radians(position.rotation)),
+        BULLET_POSITION_OFFSET * math.cos(math.radians(position.rotation)),
+        BULLET_POSITION_OFFSET * math.sin(math.radians(position.rotation)),
     )
     world.add_component(
         bullet,
