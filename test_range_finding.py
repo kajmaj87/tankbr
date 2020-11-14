@@ -1,5 +1,6 @@
 from tankbr import RangeFindingProcessor, RangeFinder, PositionBox, Solid
 import esper
+import math
 from hypothesis import given
 import hypothesis.strategies as st
 
@@ -13,8 +14,26 @@ def test_shouldFindTargetOnRight(xt, yt):
     finder = RangeFinder(maxRange=100, angleOffset=0)
     world.add_component(finderEntity, finder)
     world.add_component(finderEntity, PositionBox(x=xt, y=yt))
-    world.add_component(target, Solid(collisionRadius=10))
+    world.add_component(target, Solid(collisionRadius=1))
     targetPosition = PositionBox(x=xt + 50, y=yt)
+    world.add_component(target, targetPosition)
+    world.add_processor(RangeFindingProcessor())
+    world.process()
+
+    assert finder.closestTarget == targetPosition
+    assert finder.foundTargets == [targetPosition]
+
+
+@given(angle=st.floats(min_value=0, max_value=360))
+def test_shouldFindTargetOnEachAngle(angle):
+    world = esper.World()
+    finderEntity = world.create_entity()
+    target = world.create_entity()
+    finder = RangeFinder(maxRange=100, angleOffset=0)
+    world.add_component(finderEntity, finder)
+    world.add_component(finderEntity, PositionBox(rotation=angle))
+    world.add_component(target, Solid(collisionRadius=1))
+    targetPosition = PositionBox(x=100 * math.cos(math.radians(angle)), y=100 * math.sin(math.radians(angle)))
     world.add_component(target, targetPosition)
     world.add_processor(RangeFindingProcessor())
     world.process()

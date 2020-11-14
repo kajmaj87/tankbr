@@ -286,14 +286,15 @@ class RangeFindingProcessor(esper.Processor):
     def process(self):
         for ent, (position, finder) in self.world.get_components(PositionBox, RangeFinder):
             targets = []
+            print("Checking if {} has targets".format(ent))
             for target, (targetPosition, solid) in self.world.get_components(PositionBox, Solid):
                 if position.x == targetPosition.x and position.y == targetPosition.y:
-                    break
+                    continue
                 # nice calculation at:
                 #   https://mathworld.wolfram.com/Circle-LineIntersection.html#:~:text=In%20geometry%2C%20a%20line%20meeting,429).
                 x1, y1 = position.x, position.y
-                x2 = x1 + finder.maxRange * math.cos(finder.angleOffset + position.rotation)
-                y2 = y1 + finder.maxRange * math.sin(finder.angleOffset + position.rotation)
+                x2 = x1 + finder.maxRange * math.cos(math.radians(finder.angleOffset + position.rotation))
+                y2 = y1 + finder.maxRange * math.sin(math.radians(finder.angleOffset + position.rotation))
                 x1, y1, x2, y2 = (
                     x1 - targetPosition.x,
                     y1 - targetPosition.y,
@@ -306,6 +307,7 @@ class RangeFindingProcessor(esper.Processor):
                 # we have direct hit and it is in range of finder
                 if delta > 0:
                     targets.append(targetPosition)
+                    print("{} has found {}".format(ent, target))
             finder.foundTargets = targets
             if len(targets) > 0:
                 finder.closestTarget = min(
@@ -313,6 +315,7 @@ class RangeFindingProcessor(esper.Processor):
                     key=lambda targetPosition: math.pow(position.x - targetPosition.x, 2)
                     + math.pow(position.y - targetPosition.y, 2),
                 )
+                print("{} found {}".format(ent, finder.closestTarget))
                 # self.world.add_component(ent, Renderable(image=pygame.image.load("assets/redsquare.png")))
             else:
                 finder.closestTarget = None
@@ -491,6 +494,7 @@ OFFSET_X = 200
 OFFSET_Y = 0
 
 RANDOM_TANKS = 1
+ENEMYS_HAVE_AI = False
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
@@ -565,7 +569,7 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-    else:
+    elif ENEMYS_HAVE_AI:
         world.add_component(body, AI())
 
     world.add_component(body, Child(gun))
