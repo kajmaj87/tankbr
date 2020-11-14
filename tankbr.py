@@ -32,6 +32,11 @@ class Rotate:
         self.angle = angle
 
 
+class RotateGun:
+    def __init__(self, angle=0.0):
+        self.angle = angle
+
+
 class MovementSteering:
     def __init__(self, moveForwardKey, moveBackwardsKey):
         self.moveForwardKey = moveForwardKey
@@ -100,6 +105,7 @@ class RangeFinder:
     def __init__(self, maxRange, angleOffset):
         self.maxRange = maxRange
         self.angleOffset = angleOffset
+        self.closestTarget = None
 
 
 class FireGun:
@@ -168,6 +174,9 @@ class RotationProcessor(esper.Processor):
                 for child_position in self.world.try_component(child.childId, PositionBox):
                     child_position.rotation += rotate.angle
             self.world.remove_component(ent, Rotate)
+        for ent, (rotateGun, gun) in self.world.get_components(RotateGun, Gun):
+            self.world.component_for_entity(gun.gunEntity, PositionBox).rotation += rotateGun.angle
+            self.world.remove_component(ent, RotateGun)
 
 
 class GameEndProcessor(esper.Processor):
@@ -289,7 +298,6 @@ class RangeFindingProcessor(esper.Processor):
 
         for ent, (position, finder) in self.world.get_components(PositionBox, RangeFinder):
             targets = []
-            print("Checking if {} has targets".format(ent))
             for target, (targetPosition, solid) in self.world.get_components(PositionBox, Solid):
                 if position.x == targetPosition.x and position.y == targetPosition.y:
                     continue
@@ -318,7 +326,6 @@ class RangeFindingProcessor(esper.Processor):
                 # we have direct hit and it is in range of finder and in front of the finder
                 if delta > 0 and targetInFront and targetInRange:
                     targets.append(targetPosition)
-                    print("{} has found {}".format(ent, target))
             finder.foundTargets = targets
             if len(targets) > 0:
                 finder.closestTarget = min(
@@ -326,12 +333,8 @@ class RangeFindingProcessor(esper.Processor):
                     key=lambda targetPosition: math.pow(position.x - targetPosition.x, 2)
                     + math.pow(position.y - targetPosition.y, 2),
                 )
-                print("{} found {}".format(ent, finder.closestTarget))
-                # self.world.add_component(ent, Renderable(image=pygame.image.load("assets/redsquare.png")))
             else:
                 finder.closestTarget = None
-                # if self.world.has_component(ent, Renderable):
-                #     self.world.remove_component(ent, Renderable)
 
 
 class CollisionProcessor(esper.Processor):
@@ -373,9 +376,10 @@ class AIProcessor(esper.Processor):
         super().__init__()
 
     def process(self):
-        for ent, (ai, position) in self.world.get_components(AI, PositionBox):
+        for ent, (ai, position, gun) in self.world.get_components(AI, PositionBox, Gun):
             if not self.world.has_component(ent, Decision):
-                if random.random() > 0.3:
+                # move around
+                if random.random() > 0.95:
                     self.world.add_component(
                         ent,
                         Decision(
@@ -386,8 +390,13 @@ class AIProcessor(esper.Processor):
                             timeout=30,
                         ),
                     )
+                # search for targets
                 else:
-                    self.world.add_component(ent, Decision(commands=[FireGun()], timeout=10))
+                    target = self.world.component_for_entity(gun.gunEntity, RangeFinder).closestTarget
+                    if target is not None:
+                        self.world.add_component(ent, Decision(commands=[FireGun()], timeout=10))
+                    else:
+                        self.world.add_component(ent, Decision(commands=[RotateGun(3)], timeout=1))
 
 
 class DecisionProcessor(esper.Processor):
@@ -504,8 +513,8 @@ ZOOM = 1
 OFFSET_X = 200
 OFFSET_Y = 0
 
-RANDOM_TANKS = 1
-ENEMYS_HAVE_AI = False
+RANDOM_TANKS = 50
+ENEMYS_HAVE_AI = True
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
