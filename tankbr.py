@@ -117,10 +117,11 @@ class KeyboardEvents:
 
 
 class Renderable:
-    def __init__(self, image):
+    def __init__(self, image, rotation=0):
         self.image = image
         self.w = image.get_width()
         self.h = image.get_height()
+        self.rotation = rotation
 
 
 ################################
@@ -312,11 +313,11 @@ class RangeFindingProcessor(esper.Processor):
                     key=lambda targetPosition: math.pow(position.x - targetPosition.x, 2)
                     + math.pow(position.y - targetPosition.y, 2),
                 )
-                self.world.add_component(ent, Renderable(image=pygame.image.load("assets/redsquare.png")))
+                # self.world.add_component(ent, Renderable(image=pygame.image.load("assets/redsquare.png")))
             else:
                 finder.closestTarget = None
-                if self.world.has_component(ent, Renderable):
-                    self.world.remove_component(ent, Renderable)
+                # if self.world.has_component(ent, Renderable):
+                #     self.world.remove_component(ent, Renderable)
 
 
 class CollisionProcessor(esper.Processor):
@@ -411,26 +412,27 @@ class RenderProcessor(esper.Processor):
         self.currentFrame = 0
         self.lastFrameTimes = [0] * self.FRAME_AVG_SIZE
 
-    def blitRotate(self, surf, image, pos, originPos, angle):
+    def blitRotate(self, surf, image, pos, originPos, angle, imageRotation):
         # calcaulate the axis aligned bounding box of the rotated image
         w, h = image.get_size()
-        sin_a, cos_a = math.sin(math.radians(angle)), math.cos(math.radians(angle))
-        min_x, min_y = min([0, sin_a * h, cos_a * w, sin_a * h + cos_a * w]), max(
-            [0, sin_a * w, -cos_a * h, sin_a * w - cos_a * h]
-        )
+        box = [pygame.math.Vector2(p) for p in [(0, 0), (w, 0), (w, h), (0, h)]]
+        box_rotate = [p.rotate(angle) for p in box]
+        min_x, max_y = min(box_rotate, key=lambda p: p[0])[0], max(box_rotate, key=lambda p: p[1])[1]
+        # sin_a, cos_a = math.sin(math.radians(angle)), math.cos(math.radians(angle))
+        # min_x, min_y = min([0, sin_a * h, cos_a * w, sin_a * h + cos_a * w]), max(
+        #     [0, sin_a * w, -cos_a * h, sin_a * w - cos_a * h]
+        # )
         # calculate the translation of the pivot
-        pivot = pygame.math.Vector2(originPos[0], -originPos[1])
+        pivot = pygame.math.Vector2(originPos[0], originPos[1])
         pivot_rotate = pivot.rotate(angle)
         pivot_move = pivot_rotate - pivot
         # calculate the upper left origin of the rotated image
-        origin = (
-            pos[0] - originPos[0] + min_x - pivot_move[0],
-            pos[1] - originPos[1] - min_y + pivot_move[1],
-        )
+        x, y = pos[0] - originPos[0] + min_x - pivot_move[0], pos[1] - originPos[1] + max_y - pivot_move[1]
+
         # get a rotated image
-        rotated_image = pygame.transform.rotate(image, angle)
+        rotated_image = pygame.transform.rotate(image, angle + imageRotation)
         # rotate and blit the image
-        surf.blit(rotated_image, origin)
+        surf.blit(rotated_image, self.transformCoordinates(x, y))
 
     def addRawTime(self, time):
         self.lastFrameTimes[self.currentFrame % self.FRAME_AVG_SIZE] = time
@@ -438,28 +440,24 @@ class RenderProcessor(esper.Processor):
     def getRawTimeAvg(self):
         return sum(self.lastFrameTimes) / self.FRAME_AVG_SIZE
 
-    def process(self):
-        # Clear the window:
-        self.window.fill(self.clear_color)
+    def transformCoordinates(self, x, y):
+        return ZOOM * x + RESOLUTION[0] / 2 + OFFSET_X, -ZOOM * y + RESOLUTION[1] / 2 + OFFSET_Y
+
+    def drawTank(self):
         for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
             pivot = pygame.math.Vector2(position.pivotx, position.pivoty)
             originalPosition = pygame.math.Vector2(position.x, position.y)
-            self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation + 90)
+            self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation, rend.rotation)
 
+    def drawLaser(self):
         for ent, (gun, position) in self.world.get_components(Gun, PositionBox):
             gunPosition = self.world.component_for_entity(gun.gunEntity, PositionBox)
             sin_a, cos_a = math.sin(math.radians(gunPosition.rotation)), math.cos(math.radians(gunPosition.rotation))
-            pygame.draw.line(
-                self.window,
-                pygame.Color(255, 0, 0),
-                (gunPosition.x, gunPosition.y),
-                (
-                    gunPosition.x + LASER_RANGE * cos_a,
-                    gunPosition.y + LASER_RANGE * sin_a,
-                ),
-                2,
-            )
+            x, y = self.transformCoordinates(gunPosition.x, gunPosition.y)
+            lx, ly = self.transformCoordinates(gunPosition.x + LASER_RANGE * cos_a, gunPosition.y + LASER_RANGE * sin_a)
+            pygame.draw.line(self.window, pygame.Color(255, 0, 0), (x, y), (lx, ly), 2)
 
+    def drawUI(self):
         font = pygame.font.Font(None, 20)
         fps = font.render(
             "FPS: {} (update took: {:.1f} ms (avg from {} FPS))".format(
@@ -469,6 +467,15 @@ class RenderProcessor(esper.Processor):
             pygame.Color("white"),
         )
         self.window.blit(fps, (10, 10))
+
+    def process(self):
+        # Clear the window:
+        self.window.fill(self.clear_color)
+
+        self.drawTank()
+        self.drawLaser()
+        self.drawUI()
+
         # Flip the framebuffers
         pygame.display.flip()
         self.addRawTime(self.clock.get_rawtime())
@@ -478,6 +485,10 @@ class RenderProcessor(esper.Processor):
 
 FPS = 30
 RESOLUTION = 720, 480
+# To decouple screen from game coordinates
+ZOOM = 1
+OFFSET_X = 0
+OFFSET_Y = 0
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
@@ -519,7 +530,7 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     bw, bh = bodyImage.get_width(), bodyImage.get_height()
 
     body = world.create_entity()
-    world.add_component(body, Renderable(image=bodyImage))
+    world.add_component(body, Renderable(image=bodyImage, rotation=-90))
     world.add_component(
         body, Solid(collisionRadius=math.sqrt(bw * bw + bh * bh) / 2 * 0.7)
     )  # may overlap a little sometimes
@@ -531,7 +542,8 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     # declaration order. Idea is to use a PreRenderingProcessor that would add elements
     # to components based on their zlevel that would run once
     gun = world.create_entity()
-    world.add_component(gun, Renderable(image=gunImage))
+    world.add_component(gun, Renderable(image=gunImage, rotation=-90))
+    world.component_for_entity(gun, Renderable)
     # FIXME For now the gun and body must have the same center or they will diverge
     # during rotation/moving
     world.add_component(
@@ -551,8 +563,8 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-    #    else:
-    #        world.add_component(body, AI())
+    else:
+        world.add_component(body, AI())
 
     world.add_component(body, Child(gun))
 
@@ -572,24 +584,24 @@ def run():
 
     createTank(
         world=world,
-        startx=200,
-        starty=200,
-        bodyRotation=-90,
+        startx=0,
+        starty=0,
+        bodyRotation=0,
         gunRotation=0,
         isPlayer=True,
     )
 
-    for i in range(0):
+    for i in range(10):
         createTank(
             world=world,
-            startx=random.randint(0, 750),
-            starty=random.randint(0, 500),
+            startx=random.randint(-300, 300),
+            starty=random.randint(-300, 300),
             bodyRotation=random.randint(0, 359),
             gunRotation=random.randint(0, 359),
         )
 
-    createTank(world=world, startx=400, starty=100, bodyRotation=0, gunRotation=90)
-    createTank(world=world, startx=600, starty=400, bodyRotation=0, gunRotation=0)
+    createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
+    createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
 
     gameEndProcessor = GameEndProcessor()
     world.add_processor(KeyboardEventProcessor(events))
