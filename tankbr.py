@@ -514,16 +514,18 @@ OFFSET_X = 0
 OFFSET_Y = 0
 
 RANDOM_TANKS = 150
+SPAWN_RANGE = 1000
 ENEMYS_HAVE_AI = True
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
 
 GUN_LOADING_TIME = 30
+AMMO = 6
 BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
 
-LASER_RANGE = 800
+LASER_RANGE = 1600
 
 
 def createBullet(world, position):
@@ -579,7 +581,7 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
     world.add_component(gun, Rotate(gunRotation))
     world.add_component(gun, RangeFinder(maxRange=300, angleOffset=0))
-    world.add_component(body, Gun(gun, ammo=3))
+    world.add_component(body, Gun(gun, ammo=AMMO))
 
     if isPlayer:
         world.add_component(
@@ -620,8 +622,8 @@ def run():
     for i in range(RANDOM_TANKS):
         createTank(
             world=world,
-            startx=random.randint(-300, 300),
-            starty=random.randint(-300, 300),
+            startx=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
+            starty=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
             bodyRotation=random.randint(0, 359),
             gunRotation=random.randint(0, 359),
         )
