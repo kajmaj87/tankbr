@@ -32,7 +32,7 @@ def test_shouldFindTargetOnEachAngle(angle):
     finder = RangeFinder(maxRange=100, angleOffset=0)
     world.add_component(finderEntity, finder)
     world.add_component(finderEntity, PositionBox(rotation=angle))
-    world.add_component(target, Solid(collisionRadius=1))
+    world.add_component(target, Solid(collisionRadius=2))
     targetPosition = PositionBox(x=100 * math.cos(math.radians(angle)), y=100 * math.sin(math.radians(angle)))
     world.add_component(target, targetPosition)
     world.add_processor(RangeFindingProcessor())
@@ -40,3 +40,37 @@ def test_shouldFindTargetOnEachAngle(angle):
 
     assert finder.closestTarget == targetPosition
     assert finder.foundTargets == [targetPosition]
+
+
+def test_shouldNotFindTargetBackwards():
+    world = esper.World()
+    finderEntity = world.create_entity()
+    target = world.create_entity()
+    finder = RangeFinder(maxRange=100, angleOffset=0)
+    world.add_component(finderEntity, finder)
+    world.add_component(finderEntity, PositionBox(rotation=0))
+    world.add_component(target, Solid(collisionRadius=1))
+    targetPosition = PositionBox(x=-10, y=0)
+    world.add_component(target, targetPosition)
+    world.add_processor(RangeFindingProcessor())
+    world.process()
+
+    assert finder.closestTarget is None
+    assert finder.foundTargets == []
+
+
+def test_shouldNotFindTargetOutOfRange():
+    world = esper.World()
+    finderEntity = world.create_entity()
+    target = world.create_entity()
+    finder = RangeFinder(maxRange=100, angleOffset=0)
+    world.add_component(finderEntity, finder)
+    world.add_component(finderEntity, PositionBox(rotation=0))
+    world.add_component(target, Solid(collisionRadius=1))
+    targetPosition = PositionBox(x=102, y=0)
+    world.add_component(target, targetPosition)
+    world.add_processor(RangeFindingProcessor())
+    world.process()
+
+    assert finder.closestTarget is None
+    assert finder.foundTargets == []

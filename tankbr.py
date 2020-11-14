@@ -284,6 +284,9 @@ class RangeFindingProcessor(esper.Processor):
         super().__init__()
 
     def process(self):
+        def dist_square(x1, y1, x2, y2):
+            return math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2)
+
         for ent, (position, finder) in self.world.get_components(PositionBox, RangeFinder):
             targets = []
             print("Checking if {} has targets".format(ent))
@@ -295,17 +298,25 @@ class RangeFindingProcessor(esper.Processor):
                 x1, y1 = position.x, position.y
                 x2 = x1 + finder.maxRange * math.cos(math.radians(finder.angleOffset + position.rotation))
                 y2 = y1 + finder.maxRange * math.sin(math.radians(finder.angleOffset + position.rotation))
+                maxRangeSqr = math.pow(finder.maxRange, 2)
+                maxRangeWithCollision = finder.maxRange + solid.collisionRadius
+                # range between and of laser and target is not bigger than max laser range
+                targetInFront = dist_square(targetPosition.x, targetPosition.y, x2, y2) < maxRangeSqr
+                targetInRange = (
+                    math.sqrt(dist_square(position.x, position.y, targetPosition.x, targetPosition.y))
+                    < maxRangeWithCollision
+                )
                 x1, y1, x2, y2 = (
                     x1 - targetPosition.x,
                     y1 - targetPosition.y,
                     x2 - targetPosition.x,
                     y2 - targetPosition.y,
                 )
-                dr_square = math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2)
+                dr_square = dist_square(x1, y1, x2, y2)
                 D = x1 * y2 - x2 * y1
                 delta = math.pow(solid.collisionRadius, 2) * dr_square - math.pow(D, 2)
-                # we have direct hit and it is in range of finder
-                if delta > 0:
+                # we have direct hit and it is in range of finder and in front of the finder
+                if delta > 0 and targetInFront and targetInRange:
                     targets.append(targetPosition)
                     print("{} has found {}".format(ent, target))
             finder.foundTargets = targets
