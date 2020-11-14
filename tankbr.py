@@ -379,7 +379,7 @@ class AIProcessor(esper.Processor):
         for ent, (ai, position, gun) in self.world.get_components(AI, PositionBox, Gun):
             if not self.world.has_component(ent, Decision):
                 # move around
-                if random.random() > 0.95:
+                if random.random() > 0.9:
                     self.world.add_component(
                         ent,
                         Decision(
@@ -509,11 +509,11 @@ class RenderProcessor(esper.Processor):
 FPS = 30
 RESOLUTION = 720, 480
 # To decouple screen from game coordinates
-ZOOM = 1
-OFFSET_X = 200
+ZOOM = 0.25
+OFFSET_X = 0
 OFFSET_Y = 0
 
-RANDOM_TANKS = 50
+RANDOM_TANKS = 150
 ENEMYS_HAVE_AI = True
 
 MOVEMENT_SPEED = 6
@@ -523,7 +523,7 @@ GUN_LOADING_TIME = 30
 BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
 
-LASER_RANGE = 300
+LASER_RANGE = 800
 
 
 def createBullet(world, position):
