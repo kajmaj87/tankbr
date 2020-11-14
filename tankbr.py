@@ -430,7 +430,7 @@ class RenderProcessor(esper.Processor):
         x, y = pos[0] - originPos[0] + min_x - pivot_move[0], pos[1] - originPos[1] + max_y - pivot_move[1]
 
         # get a rotated image
-        rotated_image = pygame.transform.rotate(image, angle + imageRotation)
+        rotated_image = pygame.transform.rotozoom(image, angle + imageRotation, ZOOM)
         # rotate and blit the image
         surf.blit(rotated_image, self.transformCoordinates(x, y))
 
@@ -487,8 +487,10 @@ FPS = 30
 RESOLUTION = 720, 480
 # To decouple screen from game coordinates
 ZOOM = 1
-OFFSET_X = 0
+OFFSET_X = 200
 OFFSET_Y = 0
+
+RANDOM_TANKS = 1
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
@@ -591,7 +593,7 @@ def run():
         isPlayer=True,
     )
 
-    for i in range(10):
+    for i in range(RANDOM_TANKS):
         createTank(
             world=world,
             startx=random.randint(-300, 300),
@@ -600,8 +602,8 @@ def run():
             gunRotation=random.randint(0, 359),
         )
 
-    createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
-    createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
+    # createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
+    # createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
 
     gameEndProcessor = GameEndProcessor()
     world.add_processor(KeyboardEventProcessor(events))
