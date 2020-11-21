@@ -135,7 +135,7 @@ class Child:
         self.childId = childId
 
 
-class KeyboardEvents:
+class InputEvents:
     def __init__(self, events=None):
         self.events = events
 
@@ -206,8 +206,8 @@ class GameEndProcessor(esper.Processor):
         return self.running
 
     def process(self):
-        for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
-            for event in keyboardEvents.events:
+        for ent, inputEvents in self.world.get_component(InputEvents):
+            for event in inputEvents.events:
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
@@ -215,13 +215,13 @@ class GameEndProcessor(esper.Processor):
                         self.running = False
 
 
-class SteeringProcessor(esper.Processor):
+class InputEventProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
 
     def registerKeyActions(self, entity, key, actionKeyDown=None, actionKeyUp=None):
-        for ent, keyboardEvents in self.world.get_component(KeyboardEvents):
-            for event in keyboardEvents.events:
+        for ent, inputEvents in self.world.get_component(InputEvents):
+            for event in inputEvents.events:
                 if event.type == pygame.KEYDOWN and event.key == key and actionKeyDown is not None:
                     actionKeyDown(entity)
                 elif event.type == pygame.KEYUP and event.key == key and actionKeyUp is not None:
@@ -266,6 +266,15 @@ class SteeringProcessor(esper.Processor):
             lambda ent: self.world.add_component(ent, FireGun()),
         )
 
+    def doGlobalActions(self):
+        for ent, inputEvents in self.world.get_component(InputEvents):
+            for event in inputEvents.events:
+                if event.type == pygame.MOUSEWHEEL:
+                    if event.y > 0:
+                        increaseZoom()
+                    if event.y < 0:
+                        decreaseZoom()
+
     def process(self):
         for ent, (_, movementSteering) in self.world.get_components(Velocity, MovementSteering):
             self.steerMovement(ent, movementSteering)
@@ -273,6 +282,7 @@ class SteeringProcessor(esper.Processor):
             self.steerRotation(ent, rotationSteering)
         for ent, (_, firingSteering) in self.world.get_components(Gun, FiringSteering):
             self.fireGun(ent, firingSteering)
+        self.doGlobalActions()
 
 
 class FiringGunProcessor(esper.Processor):
@@ -430,7 +440,7 @@ class DecisionProcessor(esper.Processor):
                 self.world.remove_component(ent, Decision)
 
 
-class KeyboardEventProcessor(esper.Processor):
+class InputEventCollector(esper.Processor):
     def __init__(self, eventsEntity):
         super().__init__()
         self.eventsEntity = eventsEntity
@@ -438,7 +448,7 @@ class KeyboardEventProcessor(esper.Processor):
     def process(self):
         # FIXME Can be used to decouple further processors from
         # pygame by mapping those events to other objects
-        self.world.component_for_entity(self.eventsEntity, KeyboardEvents).events = pygame.event.get()
+        self.world.component_for_entity(self.eventsEntity, InputEvents).events = pygame.event.get()
 
 
 class RenderProcessor(esper.Processor):
@@ -528,6 +538,8 @@ FPS = 30
 RESOLUTION = 720, 480
 # To decouple screen from game coordinates
 ZOOM = 0.25
+ZOOM_CHANGE_FACTOR = 0.1
+
 OFFSET_X = 0
 OFFSET_Y = 0
 
@@ -544,6 +556,16 @@ BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
 
 LASER_RANGE = 1600
+
+
+def increaseZoom():
+    global ZOOM
+    ZOOM *= 1 + ZOOM_CHANGE_FACTOR
+
+
+def decreaseZoom():
+    global ZOOM
+    ZOOM *= 1 - ZOOM_CHANGE_FACTOR
 
 
 def createBullet(world, position):
@@ -626,7 +648,7 @@ def run():
     # Initialize Esper world, and create a "player" Entity with a few Components.
     world = esper.World()
     events = world.create_entity()
-    world.add_component(events, KeyboardEvents())
+    world.add_component(events, InputEvents())
 
     createTank(
         world=world,
@@ -650,8 +672,8 @@ def run():
     # createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
 
     gameEndProcessor = GameEndProcessor()
-    world.add_processor(KeyboardEventProcessor(events))
-    world.add_processor(SteeringProcessor())
+    world.add_processor(InputEventCollector(events))
+    world.add_processor(InputEventProcessor())
     world.add_processor(AIProcessor())
     world.add_processor(DecisionProcessor())
     world.add_processor(gameEndProcessor)
