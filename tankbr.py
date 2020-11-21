@@ -15,11 +15,11 @@
 #   - [ ] Headless simulations
 #   - [ ] Simple NeuralNet AI
 #   - [?] More rangefinders as input for AI (include constant input and random input also?)
-# - [ ] v0.3
+# - [X] v0.3
 #   - [X] Names
 #   - [X] Zooming & Screen dragging
 #   - [X] Scoring
-#   - [ ] Game End conditions
+#   - [X] Game End conditions
 # Refactors & Ideas:
 # - [ ] Separate Gun and change child to Mount (mount just moves around with parent)
 # - [ ] Change all Move, Rotate etc to Commands
@@ -28,6 +28,7 @@ import pygame
 import esper
 import math
 import random
+from enum import Enum
 
 ##################################
 #  Define some Components:
@@ -91,6 +92,12 @@ class FiringSteering:
 
 
 class AI:
+    pass
+
+
+class Agent:
+    """Marker component for players/AIs that are taking part in the game actively"""
+
     pass
 
 
@@ -221,21 +228,45 @@ class RotationProcessor(esper.Processor):
 
 
 class GameEndProcessor(esper.Processor):
-    def __init__(self):
+    class GameEndReason(Enum):
+        MANUAL = 0
+        OUT_OF_AMMO = 1
+        OUT_OF_TIME = 2
+        LAST_MAN_STANDING = 3
+
+    def __init__(self, turnsLeft):
         super().__init__()
-        self.running = True
+        self.turnsLeft = turnsLeft
+        self.gameEndReason = None
+        self.noAmmoCountdown = False
 
     def isGameRunning(self):
-        return self.running
+        return self.gameEndReason is None
 
     def process(self):
+        self.turnsLeft -= 1
+        if all(g.ammo == 0 for e, g in self.world.get_component(Gun)) and not self.noAmmoCountdown:
+            print("No bullets countdown started")
+            self.noAmmoCountdown = True
+            self.noAmmoTurnsLeft = NO_AMMO_GAME_TIMEOUT
+        if self.noAmmoCountdown:
+            self.noAmmoTurnsLeft -= 1
+            if self.noAmmoTurnsLeft <= 0:
+                print("Game ended because no one had bullets left")
+                self.gameEndReason = self.GameEndReason.OUT_OF_AMMO
+        if self.turnsLeft <= 0:
+            print("Game ended because time run out")
+            self.gameEndReason = self.GameEndReason.OUT_OF_TIME
+        if len(self.world.get_component(Agent)) <= 1:
+            print("Game ended because there were no players to kill left")
+            self.gameEndReason = self.GameEndReason.LAST_MAN_STANDING
         for ent, inputEvents in self.world.get_component(InputEvents):
             for event in inputEvents.events:
                 if event.type == pygame.QUIT:
-                    self.running = False
+                    self.gameEndReason = self.GameEndReason.MANUAL
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        self.running = False
+                        self.gameEndReason = self.GameEndReason.MANUAL
 
 
 class InputEventProcessor(esper.Processor):
@@ -605,7 +636,7 @@ class RenderProcessor(esper.Processor):
 FPS = 30
 RESOLUTION = 720, 480
 # To decouple screen from game coordinates
-ZOOM = 0.25
+ZOOM = 1
 ZOOM_CHANGE_FACTOR = 0.1
 
 FRAG_SCORE = 2
@@ -615,19 +646,22 @@ SURVIVED_SCORE = 10
 OFFSET_X = 0
 OFFSET_Y = 0
 
-RANDOM_TANKS = 150
-SPAWN_RANGE = 1000
+RANDOM_TANKS = 1
+SPAWN_RANGE = 300
 ENEMYS_HAVE_AI = True
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
 
 GUN_LOADING_TIME = 30
-AMMO = 6
+AMMO = 3
 BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
 
 LASER_RANGE = 1600
+
+MAX_SIMULATION_TURNS = 30 * 60
+NO_AMMO_GAME_TIMEOUT = 30 * 3
 
 
 def increaseZoom():
@@ -676,6 +710,7 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
         body, Solid(collisionRadius=math.sqrt(bw * bw + bh * bh) / 2 * 0.7)
     )  # may overlap a little sometimes
     world.add_component(body, Name(name))
+    world.add_component(body, Agent())
     world.add_component(body, TotalScore(points=0))
     world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
     world.add_component(body, Velocity(speed=0, angularSpeed=0))
@@ -740,7 +775,7 @@ def run():
     # createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
     # createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
 
-    gameEndProcessor = GameEndProcessor()
+    gameEndProcessor = GameEndProcessor(turnsLeft=MAX_SIMULATION_TURNS)
     world.add_processor(InputEventCollector(events))
     world.add_processor(InputEventProcessor())
     world.add_processor(AIProcessor())
