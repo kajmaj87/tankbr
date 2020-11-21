@@ -18,7 +18,7 @@
 # - [ ] v0.3
 #   - [X] Names
 #   - [X] Zooming & Screen dragging
-#   - [ ] Scoring
+#   - [X] Scoring
 #   - [ ] Game End conditions
 # Refactors & Ideas:
 # - [ ] Separate Gun and change child to Mount (mount just moves around with parent)
@@ -42,6 +42,19 @@ class Name:
 class Move:
     def __init__(self, distance=0.0):
         self.distance = distance
+
+
+class Score:
+    """Define points for some entity. One enity can have many scores"""
+
+    def __init__(self, ownerId, points=0):
+        self.ownerId = ownerId
+        self.points = points
+
+
+class TotalScore:
+    def __init__(self, points=0):
+        self.points = points
 
 
 class Velocity:
@@ -138,6 +151,11 @@ class FireGun:
 class Child:
     def __init__(self, childId):
         self.childId = childId
+
+
+class Owner:
+    def __init__(self, ownerId):
+        self.ownerId = ownerId
 
 
 class InputEvents:
@@ -313,8 +331,9 @@ class FiringGunProcessor(esper.Processor):
         for ent, (gun, fireGun, position) in self.world.get_components(Gun, FireGun, PositionBox):
             if gun.isLoaded:
                 createBullet(
-                    self.world,
-                    self.world.component_for_entity(gun.gunEntity, PositionBox),
+                    world=self.world,
+                    ownerId=ent,
+                    position=self.world.component_for_entity(gun.gunEntity, PositionBox),
                 )
                 gun.isLoaded = False
             self.world.remove_component(ent, FireGun)
@@ -415,6 +434,11 @@ class CollisionProcessor(esper.Processor):
                 ):
                     if self.world.has_component(entityA, Explosive) or self.world.has_component(entityB, Explosive):
                         self.deleteWithChildren(entityA)
+                        # Add points for someone that caused explosion
+                        for owner in self.world.try_component(entityA, Owner):
+                            # owner of the bullet may already be dead
+                            if self.world.entity_exists(owner.ownerId):
+                                self.world.create_entity(Score(owner.ownerId, FRAG_SCORE))
                     else:
                         self.revertMoveOnCollision(entityA)
 
@@ -469,6 +493,16 @@ class InputEventCollector(esper.Processor):
         # FIXME Can be used to decouple further processors from
         # pygame by mapping those events to other objects
         self.world.component_for_entity(self.eventsEntity, InputEvents).events = pygame.event.get()
+
+
+class TotalScoreProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, score in self.world.get_component(Score):
+            self.world.component_for_entity(score.ownerId, TotalScore).points += 2
+            self.world.delete_entity(ent)
 
 
 class RenderProcessor(esper.Processor):
@@ -528,17 +562,18 @@ class RenderProcessor(esper.Processor):
             lx, ly = self.transformCoordinates(gunPosition.x + LASER_RANGE * cos_a, gunPosition.y + LASER_RANGE * sin_a)
             pygame.draw.line(self.window, pygame.Color(255, 0, 0), (x, y), (lx, ly), 2)
 
-    def drawNames(self):
+    def drawNamesAndScores(self):
         font = pygame.font.Font(None, 16)
-        for ent, (name, position) in self.world.get_components(Name, PositionBox):
-            fps = font.render(
-                name.name,
+        for ent, (name, score, position) in self.world.get_components(Name, TotalScore, PositionBox):
+            text = "{} +{}".format(name.name, score.points)
+            label = font.render(
+                text,
                 True,
                 pygame.Color("yellow"),
             )
-            tx, ty = font.size(name.name)
+            tx, ty = font.size(text)
             x, y = self.transformCoordinates(position.x, position.y + 0.7 * position.h)
-            self.window.blit(fps, (x - tx / 2, y - ty))
+            self.window.blit(label, (x - tx / 2, y - ty))
 
     def drawUI(self):
         font = pygame.font.Font(None, 20)
@@ -557,7 +592,7 @@ class RenderProcessor(esper.Processor):
 
         self.drawTank()
         self.drawLaser()
-        self.drawNames()
+        self.drawNamesAndScores()
         self.drawUI()
 
         # Flip the framebuffers
@@ -572,6 +607,10 @@ RESOLUTION = 720, 480
 # To decouple screen from game coordinates
 ZOOM = 0.25
 ZOOM_CHANGE_FACTOR = 0.1
+
+FRAG_SCORE = 2
+LAST_MAN_STANDING_SCORE = 10
+SURVIVED_SCORE = 10
 
 OFFSET_X = 0
 OFFSET_Y = 0
@@ -601,7 +640,7 @@ def decreaseZoom():
     ZOOM *= 1 - ZOOM_CHANGE_FACTOR
 
 
-def createBullet(world, position):
+def createBullet(world, ownerId, position):
     bullet = world.create_entity()
     bulletImage = pygame.image.load("assets/bullet.png")
     world.add_component(bullet, Solid(collisionRadius=10))
@@ -622,6 +661,7 @@ def createBullet(world, position):
     )
     world.add_component(bullet, Renderable(image=bulletImage))
     world.add_component(bullet, Velocity(speed=BULLET_SPEED, angularSpeed=0))
+    world.add_component(bullet, Owner(ownerId))
     world.add_component(bullet, Explosive())
 
 
@@ -636,6 +676,7 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
         body, Solid(collisionRadius=math.sqrt(bw * bw + bh * bh) / 2 * 0.7)
     )  # may overlap a little sometimes
     world.add_component(body, Name(name))
+    world.add_component(body, TotalScore(points=0))
     world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
     world.add_component(body, Velocity(speed=0, angularSpeed=0))
     world.add_component(body, Rotate(bodyRotation))
@@ -706,6 +747,7 @@ def run():
     world.add_processor(DecisionProcessor())
     world.add_processor(gameEndProcessor)
     world.add_processor(CollisionProcessor())
+    world.add_processor(TotalScoreProcessor())
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
     world.add_processor(RangeFindingProcessor())
