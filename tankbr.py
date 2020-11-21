@@ -1,10 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Next steps:
+# RoadMap:
+# - [ ] v0.x
+#   - [ ] Multihostprocessing
+# - [ ] v0.6
+#   - [ ] Multiprocessing
+#   - [ ] Optimization round
+# - [ ] v0.5
+#   - [ ] Tournaments
+#   - [ ] Genetic mutations for NN Ai
+#   - [ ] Seeding and game end checksums (replay functionality)
+# - [ ] v0.4
+#   - [ ] Headless simulations
+#   - [ ] Simple NeuralNet AI
+#   - [?] More rangefinders as input for AI (include constant input and random input also?)
+# - [ ] v0.3
+#   - [ ] Names
+#   - [ ] Zooming
+#   - [ ] Scoring
+#   - [ ] Game End conditions
+# Refactors & Ideas:
 # - [ ] Separate Gun and change child to Mount (mount just moves around with parent)
 # - [ ] Change all Move, Rotate etc to Commands
-# - [ ] Create RotateGun command
 
 import pygame
 import esper
