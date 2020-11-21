@@ -16,8 +16,8 @@
 #   - [ ] Simple NeuralNet AI
 #   - [?] More rangefinders as input for AI (include constant input and random input also?)
 # - [ ] v0.3
-#   - [ ] Names
-#   - [ ] Zooming
+#   - [X] Names
+#   - [X] Zooming & Screen dragging
 #   - [ ] Scoring
 #   - [ ] Game End conditions
 # Refactors & Ideas:
@@ -32,6 +32,11 @@ import random
 ##################################
 #  Define some Components:
 ##################################
+
+
+class Name:
+    def __init__(self, name):
+        self.name = name
 
 
 class Move:
@@ -523,6 +528,18 @@ class RenderProcessor(esper.Processor):
             lx, ly = self.transformCoordinates(gunPosition.x + LASER_RANGE * cos_a, gunPosition.y + LASER_RANGE * sin_a)
             pygame.draw.line(self.window, pygame.Color(255, 0, 0), (x, y), (lx, ly), 2)
 
+    def drawNames(self):
+        font = pygame.font.Font(None, 16)
+        for ent, (name, position) in self.world.get_components(Name, PositionBox):
+            fps = font.render(
+                name.name,
+                True,
+                pygame.Color("yellow"),
+            )
+            tx, ty = font.size(name.name)
+            x, y = self.transformCoordinates(position.x, position.y + 0.7 * position.h)
+            self.window.blit(fps, (x - tx / 2, y - ty))
+
     def drawUI(self):
         font = pygame.font.Font(None, 20)
         fps = font.render(
@@ -540,6 +557,7 @@ class RenderProcessor(esper.Processor):
 
         self.drawTank()
         self.drawLaser()
+        self.drawNames()
         self.drawUI()
 
         # Flip the framebuffers
@@ -607,7 +625,7 @@ def createBullet(world, position):
     world.add_component(bullet, Explosive())
 
 
-def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlayer=False):
+def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, isPlayer=False):
     bodyImage = pygame.image.load("assets/tankBase.png")
     gunImage = pygame.image.load("assets/tankTurret.png")
     bw, bh = bodyImage.get_width(), bodyImage.get_height()
@@ -617,6 +635,7 @@ def createTank(world, startx, starty, bodyRotation=0.0, gunRotation=0.0, isPlaye
     world.add_component(
         body, Solid(collisionRadius=math.sqrt(bw * bw + bh * bh) / 2 * 0.7)
     )  # may overlap a little sometimes
+    world.add_component(body, Name(name))
     world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
     world.add_component(body, Velocity(speed=0, angularSpeed=0))
     world.add_component(body, Rotate(bodyRotation))
@@ -665,14 +684,7 @@ def run():
     events = world.create_entity()
     world.add_component(events, InputEvents())
 
-    createTank(
-        world=world,
-        startx=0,
-        starty=0,
-        bodyRotation=0,
-        gunRotation=0,
-        isPlayer=True,
-    )
+    createTank(world=world, startx=0, starty=0, bodyRotation=0, gunRotation=0, isPlayer=True, name="<<Player>>")
 
     for i in range(RANDOM_TANKS):
         createTank(
@@ -681,6 +693,7 @@ def run():
             starty=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
             bodyRotation=random.randint(0, 359),
             gunRotation=random.randint(0, 359),
+            name="Tank-{}".format(i),
         )
 
     # createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
