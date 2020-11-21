@@ -266,7 +266,16 @@ class InputEventProcessor(esper.Processor):
             lambda ent: self.world.add_component(ent, FireGun()),
         )
 
-    def doGlobalActions(self):
+    def doMouseActions(self):
+        global OFFSET_X, OFFSET_Y
+        # button events must go first so the screen does not jump when motion comes first
+        for ent, inputEvents in self.world.get_component(InputEvents):
+            for event in inputEvents.events:
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    leftMouseButtonPressed, _, _ = pygame.mouse.get_pressed(3)
+                    if leftMouseButtonPressed:
+                        # get_rel needs to be reset to avoid screen jumps when dragging
+                        pygame.mouse.get_rel()
         for ent, inputEvents in self.world.get_component(InputEvents):
             for event in inputEvents.events:
                 if event.type == pygame.MOUSEWHEEL:
@@ -274,6 +283,12 @@ class InputEventProcessor(esper.Processor):
                         increaseZoom()
                     if event.y < 0:
                         decreaseZoom()
+                if event.type == pygame.MOUSEMOTION:
+                    leftMouseButtonPressed, _, _ = pygame.mouse.get_pressed(3)
+                    if leftMouseButtonPressed:
+                        x, y = pygame.mouse.get_rel()
+                        OFFSET_X += x
+                        OFFSET_Y += y
 
     def process(self):
         for ent, (_, movementSteering) in self.world.get_components(Velocity, MovementSteering):
@@ -282,7 +297,7 @@ class InputEventProcessor(esper.Processor):
             self.steerRotation(ent, rotationSteering)
         for ent, (_, firingSteering) in self.world.get_components(Gun, FiringSteering):
             self.fireGun(ent, firingSteering)
-        self.doGlobalActions()
+        self.doMouseActions()
 
 
 class FiringGunProcessor(esper.Processor):
