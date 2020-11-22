@@ -1,4 +1,4 @@
-from tankbr import MovementProcessor, Move, PositionBox, Solid
+from tankbr import MovementProcessor, Move, PositionBox
 import esper
 import math
 from hypothesis import given

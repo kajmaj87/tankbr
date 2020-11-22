@@ -532,13 +532,22 @@ class InputEventCollector(esper.Processor):
 
 
 class TotalScoreProcessor(esper.Processor):
-    def __init__(self):
+    def __init__(self, gameEndProcessor, survivorScore, lastManStandingScore):
         super().__init__()
+        self.gameEndProcessor = gameEndProcessor
+        self.survivorScore = survivorScore
+        self.lastManStandingScore = lastManStandingScore
 
     def process(self):
         for ent, score in self.world.get_component(Score):
-            self.world.component_for_entity(score.ownerId, TotalScore).points += 2
+            self.world.component_for_entity(score.ownerId, TotalScore).points += score.points
             self.world.delete_entity(ent)
+        if not self.gameEndProcessor.isGameRunning():
+            agentsLeft = self.world.get_components(Agent, TotalScore)
+            for ent, (agent, totalScore) in agentsLeft:
+                totalScore.points += self.survivorScore
+                if len(agentsLeft) <= 1:
+                    totalScore.points += self.lastManStandingScore
 
 
 class RenderProcessor(esper.Processor):
@@ -787,7 +796,13 @@ def run():
     world.add_processor(DecisionProcessor())
     world.add_processor(gameEndProcessor)
     world.add_processor(CollisionProcessor())
-    world.add_processor(TotalScoreProcessor())
+    world.add_processor(
+        TotalScoreProcessor(
+            gameEndProcessor=gameEndProcessor,
+            survivorScore=SURVIVED_SCORE,
+            lastManStandingScore=LAST_MAN_STANDING_SCORE,
+        )
+    )
     world.add_processor(MovementProcessor())
     world.add_processor(RotationProcessor())
     world.add_processor(RangeFindingProcessor())
