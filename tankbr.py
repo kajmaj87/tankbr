@@ -4,17 +4,21 @@
 # RoadMap:
 # - [ ] v0.x
 #   - [ ] Multihostprocessing
-# - [ ] v0.6
+# - [ ] v0.7
 #   - [ ] Multiprocessing
 #   - [ ] Optimization round
+# - [ ] v0.6
+#   - [ ] Genetic mutations for NN Ai
+#   - [ ] Simple NeuralNet AI
 # - [ ] v0.5
 #   - [ ] Tournaments
-#   - [ ] Genetic mutations for NN Ai
 #   - [ ] Seeding and game end checksums (replay functionality)
 # - [ ] v0.4
 #   - [ ] Headless simulations
-#   - [ ] Simple NeuralNet AI
+#   - [ ] More different AIs
 #   - [?] More rangefinders as input for AI (include constant input and random input also?)
+# - [ ] v0.3.1
+#   - [ ] Game End adds points depending on conditions (+tests)
 # - [X] v0.3
 #   - [X] Names
 #   - [X] Zooming & Screen dragging
@@ -234,26 +238,27 @@ class GameEndProcessor(esper.Processor):
         OUT_OF_TIME = 2
         LAST_MAN_STANDING = 3
 
-    def __init__(self, turnsLeft):
+    def __init__(self, turnsLeft, ammoTimeout):
         super().__init__()
         self.turnsLeft = turnsLeft
         self.gameEndReason = None
         self.noAmmoCountdown = False
+        self.ammoTimeout = ammoTimeout
 
     def isGameRunning(self):
         return self.gameEndReason is None
 
     def process(self):
         self.turnsLeft -= 1
-        if all(g.ammo == 0 for e, g in self.world.get_component(Gun)) and not self.noAmmoCountdown:
-            print("No bullets countdown started")
-            self.noAmmoCountdown = True
-            self.noAmmoTurnsLeft = NO_AMMO_GAME_TIMEOUT
         if self.noAmmoCountdown:
             self.noAmmoTurnsLeft -= 1
             if self.noAmmoTurnsLeft <= 0:
                 print("Game ended because no one had bullets left")
                 self.gameEndReason = self.GameEndReason.OUT_OF_AMMO
+        if all(g.ammo == 0 for e, g in self.world.get_component(Gun)) and not self.noAmmoCountdown:
+            print("No bullets countdown started")
+            self.noAmmoCountdown = True
+            self.noAmmoTurnsLeft = self.ammoTimeout
         if self.turnsLeft <= 0:
             print("Game ended because time run out")
             self.gameEndReason = self.GameEndReason.OUT_OF_TIME
@@ -775,7 +780,7 @@ def run():
     # createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
     # createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
 
-    gameEndProcessor = GameEndProcessor(turnsLeft=MAX_SIMULATION_TURNS)
+    gameEndProcessor = GameEndProcessor(turnsLeft=MAX_SIMULATION_TURNS, ammoTimeout=NO_AMMO_GAME_TIMEOUT)
     world.add_processor(InputEventCollector(events))
     world.add_processor(InputEventProcessor())
     world.add_processor(AIProcessor())
