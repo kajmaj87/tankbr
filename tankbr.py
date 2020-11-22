@@ -15,7 +15,7 @@
 #   - [ ] Seeding and game end checksums (replay functionality)
 # - [ ] v0.4
 #   - [ ] Headless simulations
-#   - [ ] More different AIs
+#   - [X] More different AIs
 #   - [?] More rangefinders as input for AI (include constant input and random input also?)
 # - [X] v0.3.1
 #   - [X] Game End adds points depending on conditions (+tests)
@@ -32,6 +32,8 @@ import pygame
 import esper
 import math
 import random
+from ai import rotatorAI, fastAndSlowRotatorAI, monkeyAI
+
 from gamecomponents import (
     Name,
     Move,
@@ -43,6 +45,8 @@ from gamecomponents import (
     MovementSteering,
     RotationSteering,
     FiringSteering,
+    Perception,
+    Memory,
     AI,
     Agent,
     Decision,
@@ -60,9 +64,6 @@ from gamecomponents import (
 from enum import Enum
 
 
-################################
-#  Define some Processors:
-################################
 class MovementProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
@@ -363,26 +364,11 @@ class AIProcessor(esper.Processor):
 
     def process(self):
         for ent, (ai, position, gun) in self.world.get_components(AI, PositionBox, Gun):
-            if not self.world.has_component(ent, Decision):
-                # move around
-                if random.random() > 0.9:
-                    self.world.add_component(
-                        ent,
-                        Decision(
-                            commands=[
-                                Move(random.randint(-2, 3)),
-                                Rotate(random.randint(-3, 3)),
-                            ],
-                            timeout=30,
-                        ),
-                    )
-                # search for targets
-                else:
-                    target = self.world.component_for_entity(gun.gunEntity, RangeFinder).closestTarget
-                    if target is not None:
-                        self.world.add_component(ent, Decision(commands=[FireGun()], timeout=10))
-                    else:
-                        self.world.add_component(ent, Decision(commands=[RotateGun(3)], timeout=1))
+            perception = Perception()
+            perception.target = self.world.component_for_entity(gun.gunEntity, RangeFinder).closestTarget
+            decision, ai.memory = ai.decide(perception, ai.memory)
+            if decision is not None:
+                self.world.add_component(ent, decision)
 
 
 class DecisionProcessor(esper.Processor):
@@ -538,15 +524,15 @@ SURVIVED_SCORE = 10
 OFFSET_X = 0
 OFFSET_Y = 0
 
-RANDOM_TANKS = 1
-SPAWN_RANGE = 300
+RANDOM_TANKS = 100
+SPAWN_RANGE = 900
 ENEMYS_HAVE_AI = True
 
 MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
 
 GUN_LOADING_TIME = 30
-AMMO = 3
+AMMO = 6
 BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
 
@@ -601,7 +587,6 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
     world.add_component(
         body, Solid(collisionRadius=math.sqrt(bw * bw + bh * bh) / 2 * 0.7)
     )  # may overlap a little sometimes
-    world.add_component(body, Name(name))
     world.add_component(body, Agent())
     world.add_component(body, TotalScore(points=0))
     world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
@@ -622,7 +607,7 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
     )
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
     world.add_component(gun, Rotate(gunRotation))
-    world.add_component(gun, RangeFinder(maxRange=300, angleOffset=0))
+    world.add_component(gun, RangeFinder(maxRange=LASER_RANGE, angleOffset=0))
     world.add_component(body, Gun(gun, ammo=AMMO))
 
     if isPlayer:
@@ -633,8 +618,12 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
+        world.add_component(body, Name(name))
     elif ENEMYS_HAVE_AI:
-        world.add_component(body, AI())
+        ais = {"monkey": monkeyAI, "rotator": rotatorAI, "fastRotator": fastAndSlowRotatorAI}
+        aiName, aiBrain = random.choice(list(ais.items()))
+        world.add_component(body, Name("{}->{}".format(name, aiName)))
+        world.add_component(body, AI(aiBrain))
 
     world.add_component(body, Child(gun))
 

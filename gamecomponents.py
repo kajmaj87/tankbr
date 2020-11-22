@@ -54,8 +54,25 @@ class FiringSteering:
         self.fireGunKey = fireGunKey
 
 
-class AI:
+class Perception:
+    """Special dynamic object used in AI context. You can pass anything to it and use in AI decisionFunction"""
+
     pass
+
+
+class Memory:
+    """Special dynamic object used in AI context. You can pass anything to it and use in AI decisionFunction"""
+
+    pass
+
+
+class AI:
+    def __init__(self, decisionFunction, memory=None):
+        self.decisionFunction = decisionFunction
+        self.memory = memory
+
+    def decide(self, perception, memory):
+        return self.decisionFunction(perception, memory)
 
 
 class Agent:
