@@ -631,24 +631,12 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
 
 def printScoresAndRankings(world):
     # i[0] is entity id
-    formatString = "{:>25} | {:>4} | {:>02.1f} | {:>02.1f} | {:>02.2f}"
-    # print(formatString.format("Name", "Score", "Rank", "Mu", "Sigma"))
-
-    # ranks = sorted(
-    #     processRanks([p[1] for p in world.get_component(PlayerInfo)]).items(),
-    #     key=lambda entry: entry[1].mu - 3 * entry[1].sigma,
-    # )
-    ranks = processRanks([p[1] for p in world.get_component(PlayerInfo)])
-    result = []
-    for rank_dict in ranks:
-        for playerInfo in rank_dict:
-            rank = rank_dict[playerInfo]
-            playerInfo.rank = rank.mu - 3 * rank.sigma
-            playerInfo.mu = rank.mu
-            playerInfo.sigma = rank.sigma
-            result.append(playerInfo)
-    for p in sorted(result, key=lambda player: -player.rank):
-        print(formatString.format(p.name, p.score, p.rank, p.mu, p.sigma))
+    formatHeaders = "{:>25} | {:>5} | {:>4} | {:>4} | {:>5} |"
+    formatScores = "{:>25} | {:>5} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
+    rankedPlayers = processRanks([p[1] for p in world.get_component(PlayerInfo)])
+    print(formatHeaders.format("Name", "Score", "Rank", "Mu", "Sigma"))
+    for p in rankedPlayers:
+        print(formatScores.format(p.name, p.score, p.rank, p.mu, p.sigma))
 
 
 def run():
