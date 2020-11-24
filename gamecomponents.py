@@ -1,6 +1,12 @@
-class Name:
-    def __init__(self, name):
+class PlayerInfo:
+    def __init__(self, name, score=0):
         self.name = name
+        self.score = score
+        # will be set by rating component
+        self.rating = None
+        self.ranking = None
+        self.mu = None
+        self.sigma = None
 
 
 class Move:
@@ -13,11 +19,6 @@ class Score:
 
     def __init__(self, ownerId, points=0):
         self.ownerId = ownerId
-        self.points = points
-
-
-class TotalScore:
-    def __init__(self, points=0):
         self.points = points
 
 

@@ -33,12 +33,12 @@ import esper
 import math
 import random
 from ai import rotatorAI, fastAndSlowRotatorAI, monkeyAI
+from ranking import processRanks
 
 from gamecomponents import (
-    Name,
+    PlayerInfo,
     Move,
     Score,
-    TotalScore,
     Velocity,
     Rotate,
     RotateGun,
@@ -46,7 +46,6 @@ from gamecomponents import (
     RotationSteering,
     FiringSteering,
     Perception,
-    Memory,
     AI,
     Agent,
     Decision,
@@ -328,6 +327,9 @@ class CollisionProcessor(esper.Processor):
         return math.pow(r0 - r1, 2) <= pointDifference and pointDifference <= math.pow(r0 + r1, 2)
 
     def deleteWithChildren(self, entity):
+        for info in self.world.try_component(entity, PlayerInfo):
+            # keep the scoring information when player dies
+            self.world.create_entity(info)
         for child in self.world.try_component(entity, Child):
             self.world.delete_entity(child.childId)
         self.world.delete_entity(entity)
@@ -404,14 +406,14 @@ class TotalScoreProcessor(esper.Processor):
 
     def process(self):
         for ent, score in self.world.get_component(Score):
-            self.world.component_for_entity(score.ownerId, TotalScore).points += score.points
+            self.world.component_for_entity(score.ownerId, PlayerInfo).score += score.points
             self.world.delete_entity(ent)
         if not self.gameEndProcessor.isGameRunning():
-            agentsLeft = self.world.get_components(Agent, TotalScore)
+            agentsLeft = self.world.get_components(Agent, PlayerInfo)
             for ent, (agent, totalScore) in agentsLeft:
-                totalScore.points += self.survivorScore
+                totalScore.score += self.survivorScore
                 if len(agentsLeft) <= 1:
-                    totalScore.points += self.lastManStandingScore
+                    totalScore.score += self.lastManStandingScore
 
 
 class RenderProcessor(esper.Processor):
@@ -473,8 +475,8 @@ class RenderProcessor(esper.Processor):
 
     def drawNamesAndScores(self):
         font = pygame.font.Font(None, 16)
-        for ent, (name, score, position) in self.world.get_components(Name, TotalScore, PositionBox):
-            text = "{} +{}".format(name.name, score.points)
+        for ent, (info, position) in self.world.get_components(PlayerInfo, PositionBox):
+            text = "{} +{}".format(info.name, info.score)
             label = font.render(
                 text,
                 True,
@@ -524,8 +526,8 @@ SURVIVED_SCORE = 10
 OFFSET_X = 0
 OFFSET_Y = 0
 
-RANDOM_TANKS = 100
-SPAWN_RANGE = 900
+RANDOM_TANKS = 15
+SPAWN_RANGE = 200
 ENEMYS_HAVE_AI = True
 
 MOVEMENT_SPEED = 6
@@ -536,10 +538,10 @@ AMMO = 6
 BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
 
-LASER_RANGE = 1600
+LASER_RANGE = 400
 
-MAX_SIMULATION_TURNS = 30 * 60
-NO_AMMO_GAME_TIMEOUT = 30 * 3
+MAX_SIMULATION_TURNS = FPS * 15
+NO_AMMO_GAME_TIMEOUT = FPS * 3
 
 
 def increaseZoom():
@@ -588,7 +590,6 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
         body, Solid(collisionRadius=math.sqrt(bw * bw + bh * bh) / 2 * 0.7)
     )  # may overlap a little sometimes
     world.add_component(body, Agent())
-    world.add_component(body, TotalScore(points=0))
     world.add_component(body, PositionBox(x=startx, y=starty, w=bw, h=bh))
     world.add_component(body, Velocity(speed=0, angularSpeed=0))
     world.add_component(body, Rotate(bodyRotation))
@@ -618,14 +619,36 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-        world.add_component(body, Name(name))
+        world.add_component(body, PlayerInfo(name=name))
     elif ENEMYS_HAVE_AI:
         ais = {"monkey": monkeyAI, "rotator": rotatorAI, "fastRotator": fastAndSlowRotatorAI}
         aiName, aiBrain = random.choice(list(ais.items()))
-        world.add_component(body, Name("{}->{}".format(name, aiName)))
+        world.add_component(body, PlayerInfo(name="{}->{}".format(name, aiName)))
         world.add_component(body, AI(aiBrain))
 
     world.add_component(body, Child(gun))
+
+
+def printScoresAndRankings(world):
+    # i[0] is entity id
+    formatString = "{:>25} | {:>4} | {:>02.1f} | {:>02.1f} | {:>02.2f}"
+    # print(formatString.format("Name", "Score", "Rank", "Mu", "Sigma"))
+
+    # ranks = sorted(
+    #     processRanks([p[1] for p in world.get_component(PlayerInfo)]).items(),
+    #     key=lambda entry: entry[1].mu - 3 * entry[1].sigma,
+    # )
+    ranks = processRanks([p[1] for p in world.get_component(PlayerInfo)])
+    result = []
+    for rank_dict in ranks:
+        for playerInfo in rank_dict:
+            rank = rank_dict[playerInfo]
+            playerInfo.rank = rank.mu - 3 * rank.sigma
+            playerInfo.mu = rank.mu
+            playerInfo.sigma = rank.sigma
+            result.append(playerInfo)
+    for p in sorted(result, key=lambda player: -player.rank):
+        print(formatString.format(p.name, p.score, p.rank, p.mu, p.sigma))
 
 
 def run():
@@ -681,6 +704,7 @@ def run():
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
         world.process()
+    printScoresAndRankings(world)
 
 
 if __name__ == "__main__":

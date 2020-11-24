@@ -1,4 +1,4 @@
-from tankbr import TotalScoreProcessor, Score, TotalScore, Agent, GameEndProcessor
+from tankbr import TotalScoreProcessor, Score, PlayerInfo, Agent, GameEndProcessor
 from hypothesis import given
 import hypothesis.strategies as st
 import esper
@@ -10,7 +10,7 @@ LAST_MAN_STANDING_SCORE = 3
 def createAgent(world, totalScore=0):
     agent = world.create_entity()
     world.add_component(agent, Agent())
-    world.add_component(agent, TotalScore(points=totalScore))
+    world.add_component(agent, PlayerInfo(name="test_agent", score=totalScore))
     return agent
 
 
@@ -24,7 +24,7 @@ def test_shouldAddScore(startingScore, pointsGained):
     world.create_entity(Score(agent, pointsGained))
     world.process()
 
-    assert world.component_for_entity(agent, TotalScore).points == startingScore + pointsGained
+    assert world.component_for_entity(agent, PlayerInfo).score == startingScore + pointsGained
 
 
 def test_shouldAddScoreAfterGameEndIfMoreThenOnePlayer():
@@ -36,8 +36,8 @@ def test_shouldAddScoreAfterGameEndIfMoreThenOnePlayer():
     world.add_processor(TotalScoreProcessor(gameEndProcessor, SURVIVOR_SCORE, LAST_MAN_STANDING_SCORE))
     world.process()
 
-    assert world.component_for_entity(agent1, TotalScore).points == SURVIVOR_SCORE
-    assert world.component_for_entity(agent2, TotalScore).points == SURVIVOR_SCORE
+    assert world.component_for_entity(agent1, PlayerInfo).score == SURVIVOR_SCORE
+    assert world.component_for_entity(agent2, PlayerInfo).score == SURVIVOR_SCORE
 
 
 def test_shouldAddScoreAfterGameEndIfTheOnlyVictor():
@@ -48,4 +48,4 @@ def test_shouldAddScoreAfterGameEndIfTheOnlyVictor():
     world.add_processor(TotalScoreProcessor(gameEndProcessor, SURVIVOR_SCORE, LAST_MAN_STANDING_SCORE))
     world.process()
 
-    assert world.component_for_entity(agent, TotalScore).points == SURVIVOR_SCORE + LAST_MAN_STANDING_SCORE
+    assert world.component_for_entity(agent, PlayerInfo).score == SURVIVOR_SCORE + LAST_MAN_STANDING_SCORE
