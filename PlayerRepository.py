@@ -15,7 +15,7 @@ class PlayerRepository:
             if includeHumanPlayer and i == 0:
                 playerInfo = PlayerInfo(name="<<Player>>")
             else:
-                aiName, aiBrain = random.choice(list(ais.items()))
+                aiName, aiBrain = list(ais.items())[i % len(ais)]
                 playerInfo = PlayerInfo(name="Tank-{}->{}".format(i, aiName), ai=aiBrain)
             result.append(playerInfo)
         return result
@@ -25,6 +25,6 @@ class PlayerRepository:
 
     def fetchPlayers(self, sort=True):
         if sort:
-            return sorted(self.players, key=lambda p: -p.rank)
+            return sorted(self.players, key=lambda p: 50 if p.rank is None else -p.rank)
         else:
             return self.players

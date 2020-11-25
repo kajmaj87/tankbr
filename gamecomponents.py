@@ -4,10 +4,10 @@ class PlayerInfo:
         self.score = score
         self.ai = ai
         # will be set by rating component
-        self.rating = None
-        self.ranking = None
+        self.totalGames = 0
         self.mu = None
         self.sigma = None
+        self.rank = None
 
 
 class Move:

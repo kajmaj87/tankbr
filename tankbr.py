@@ -30,7 +30,7 @@
 # Quality of life and bugs:
 # - [ ] Player in different color
 # - [ ] Countdown on start
-# - [ ] Generating stating positions without overlap 
+# - [ ] Generating stating positions without overlap
 
 import pygame
 import esper
@@ -412,10 +412,12 @@ class TotalScoreProcessor(esper.Processor):
         for ent, score in self.world.get_component(Score):
             self.world.component_for_entity(score.ownerId, PlayerInfo).score += score.points
             self.world.delete_entity(ent)
+        for ent, (agent, playerInfo) in self.world.get_components(Agent, PlayerInfo):
+            playerInfo.score += 0.01
         if not self.gameEndProcessor.isGameRunning():
             agentsLeft = self.world.get_components(Agent, PlayerInfo)
             for ent, (agent, totalScore) in agentsLeft:
-                totalScore.score += self.survivorScore
+                #                totalScore.score += self.survivorScore
                 if len(agentsLeft) <= 1:
                     totalScore.score += self.lastManStandingScore
 
@@ -482,7 +484,7 @@ class RenderProcessor(esper.Processor):
     def drawNamesAndScores(self):
         font = pygame.font.Font(None, 16)
         for ent, (info, position) in self.world.get_components(PlayerInfo, PositionBox):
-            text = "{} +{}".format(info.name, info.score)
+            text = "{} +{:.1f}".format(info.name, info.score)
             label = font.render(
                 text,
                 True,
@@ -519,7 +521,7 @@ class RenderProcessor(esper.Processor):
         self.clock.tick(FPS)
 
 
-FPS = 30
+FPS = 3000
 RESOLUTION = 720, 480
 # To decouple screen from game coordinates
 ZOOM = 1
@@ -546,8 +548,8 @@ BULLET_POSITION_OFFSET = 36
 
 LASER_RANGE = 400
 
-MAX_SIMULATION_TURNS = FPS * 15
-NO_AMMO_GAME_TIMEOUT = FPS * 3
+MAX_SIMULATION_TURNS = 450
+NO_AMMO_GAME_TIMEOUT = 60
 
 
 def increaseZoom():
@@ -634,12 +636,14 @@ def createTank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=
 
 
 def printScoresAndRankings(players):
-    # i[0] is entity id
-    formatHeaders = "{:>25} | {:>5} | {:>4} | {:>4} | {:>5} |"
-    formatScores = "{:>25} | {:>5} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
-    print(formatHeaders.format("Name", "Score", "Rank", "Mu", "Sigma"))
-    for p in players:
-        print(formatScores.format(p.name, p.score, p.rank, p.mu, p.sigma))
+    formatHeaders = "{:>25} | {:>6} | {:>5} | {:>4} | {:>4} | {:>5} |"
+    formatScores = "{:>25} | {:>6} | {:>5.1f} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
+    print(formatHeaders.format("Name", "#Games", "Score", "Rank", "Mu", "Sigma"))
+    for p in sorted(players, key=lambda x: 50 if x.rank is None else -x.rank):
+        rank = -50 if p.rank is None else p.rank
+        mu = -50 if p.mu is None else p.mu
+        sigma = -50 if p.sigma is None else p.sigma
+        print(formatScores.format(p.name, p.totalGames, p.score, rank, mu, sigma))
 
 
 def initWorld():
@@ -700,6 +704,8 @@ def simulateGame(players):
         world.process()
     # rankedPlayers = processRanks([p[1] for p in world.get_component(PlayerInfo)])
     rankedPlayers = processRanks(players)
+    for p in rankedPlayers:
+        p.totalGames += 1
     printScoresAndRankings(rankedPlayers)
     return rankedPlayers
 
@@ -708,8 +714,23 @@ def run():
     # Initialize Pygame stuff
     pygame.init()
     playerRepository = PlayerRepository()
-    players = playerRepository.generatePlayers(number=8, includeHumanPlayer=True)
-    simulateGame(players)
+    players = playerRepository.generatePlayers(number=64, includeHumanPlayer=True)
+    playerRepository.setPlayers(players)
+    for i in range(3):
+        players = playerRepository.fetchPlayers()
+        for j in range(8):
+            nextMatchPlayers = players[j * 8 : (j + 1) * 8]
+            print("Starting match from round {} for group {}".format(i, j))
+            print("Ratings before match:")
+            printScoresAndRankings(nextMatchPlayers)
+
+            simulateGame(nextMatchPlayers)
+            for p in players:
+                p.score = 0
+        print("Rankings after {} round:".format(i))
+        printScoresAndRankings(players)
+
+    printScoresAndRankings(players)
 
 
 if __name__ == "__main__":
