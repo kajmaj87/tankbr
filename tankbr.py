@@ -27,6 +27,10 @@
 # Refactors & Ideas:
 # - [ ] Separate Gun and change child to Mount (mount just moves around with parent)
 # - [ ] Change all Move, Rotate etc to Commands
+# Quality of life and bugs:
+# - [ ] Player in different color
+# - [ ] Countdown on start
+# - [ ] Generating stating positions without overlap 
 
 import pygame
 import esper
