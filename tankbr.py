@@ -412,14 +412,14 @@ class TotalScoreProcessor(esper.Processor):
         for ent, score in self.world.get_component(Score):
             self.world.component_for_entity(score.ownerId, PlayerInfo).score += score.points
             self.world.delete_entity(ent)
+
         for ent, (agent, playerInfo) in self.world.get_components(Agent, PlayerInfo):
             playerInfo.score += 0.01
-        if not self.gameEndProcessor.isGameRunning():
-            agentsLeft = self.world.get_components(Agent, PlayerInfo)
-            for ent, (agent, totalScore) in agentsLeft:
-                #                totalScore.score += self.survivorScore
-                if len(agentsLeft) <= 1:
-                    totalScore.score += self.lastManStandingScore
+    # if not self.gameEndProcessor.isGameRunning():
+    #     agentsLeft = self.world.get_components(Agent, PlayerInfo)
+    #     for ent, (agent, totalScore) in agentsLeft:
+    #         if len(agentsLeft) <= 1:
+    #           totalScore.score += self.lastManStandingScore
 
 
 class RenderProcessor(esper.Processor):
@@ -714,12 +714,17 @@ def run():
     # Initialize Pygame stuff
     pygame.init()
     playerRepository = PlayerRepository()
-    players = playerRepository.generatePlayers(number=64, includeHumanPlayer=True)
+    PLAYERS = 64
+    players = playerRepository.generatePlayers(number=PLAYERS, includeHumanPlayer=True)
     playerRepository.setPlayers(players)
-    for i in range(3):
+    randomize = True
+    for i in range(32):
         players = playerRepository.fetchPlayers()
-        for j in range(8):
-            nextMatchPlayers = players[j * 8 : (j + 1) * 8]
+        for j in range(PLAYERS // 8):
+            if randomize:
+                nextMatchPlayers = random.sample(players, 8)
+            else:
+                nextMatchPlayers = players[j * 8 : (j + 1) * 8]
             print("Starting match from round {} for group {}".format(i, j))
             print("Ratings before match:")
             printScoresAndRankings(nextMatchPlayers)

@@ -1,5 +1,5 @@
 from gamecomponents import PlayerInfo
-from ai import monkeyAI, rotatorAI, fastAndSlowRotatorAI
+from ai import monkeyAI, dummyAI, dummyRotatorAI, rotatorAI, fastAndSlowRotatorAI
 
 import random
 
@@ -10,7 +10,13 @@ class PlayerRepository:
 
     def generatePlayers(self, number, includeHumanPlayer=False):
         result = []
-        ais = {"monkey": monkeyAI, "rotator": rotatorAI, "fastRotator": fastAndSlowRotatorAI}
+        ais = {
+            "monkey": monkeyAI,
+            "dummy": dummyAI,
+            "dummyRotator": dummyRotatorAI,
+            "rotator": rotatorAI,
+            "fastRotator": fastAndSlowRotatorAI,
+        }
         for i in range(number):
             if includeHumanPlayer and i == 0:
                 playerInfo = PlayerInfo(name="<<Player>>")

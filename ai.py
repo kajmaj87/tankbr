@@ -36,6 +36,14 @@ def fastAndSlowRotatorAI(perception, memory):
             return Decision(commands=[RotateGun(-SLOW_ROTATE_SPEED)]), memory
 
 
+def dummyAI(perception, memory):
+    return Decision(commands=[FireGun()]), None
+
+
+def dummyRotatorAI(perception, memory):
+    return Decision(commands=[FireGun(), RotateGun(3)]), None
+
+
 def monkeyAI(perception, memory):
     if memory is not None and memory.ttl > 0:
         memory.ttl -= 1
