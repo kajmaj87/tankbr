@@ -36,7 +36,7 @@ import pygame
 import esper
 import math
 import random
-from ai import rotatorAI, fastAndSlowRotatorAI, monkeyAI
+from PlayerRepository import PlayerRepository
 from ranking import processRanks
 
 from gamecomponents import (
@@ -424,13 +424,15 @@ class RenderProcessor(esper.Processor):
 
     FRAME_AVG_SIZE = 100
 
-    def __init__(self, window, clock, clear_color=(0, 0, 0)):
+    def __init__(self):
         super().__init__()
-        self.window = window
-        self.clock = clock
-        self.clear_color = clear_color
+        self.window = pygame.display.set_mode(RESOLUTION)
+        self.clock = pygame.time.Clock()
+        self.clear_color = (0, 0, 0)
         self.currentFrame = 0
         self.lastFrameTimes = [0] * self.FRAME_AVG_SIZE
+        pygame.display.set_caption("Tankbr")
+        pygame.key.set_repeat(1, 1)
 
     def blitRotate(self, surf, image, pos, originPos, angle, imageRotation):
         # calcaulate the axis aligned bounding box of the rotated image
@@ -583,7 +585,7 @@ def createBullet(world, ownerId, position):
     world.add_component(bullet, Explosive())
 
 
-def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, isPlayer=False):
+def createTank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=0.0):
     bodyImage = pygame.image.load("assets/tankBase.png")
     gunImage = pygame.image.load("assets/tankTurret.png")
     bw, bh = bodyImage.get_width(), bodyImage.get_height()
@@ -615,7 +617,7 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
     world.add_component(gun, RangeFinder(maxRange=LASER_RANGE, angleOffset=0))
     world.add_component(body, Gun(gun, ammo=AMMO))
 
-    if isPlayer:
+    if playerInfo.ai is None:
         world.add_component(
             body,
             MovementSteering(moveForwardKey=pygame.K_w, moveBackwardsKey=pygame.K_s),
@@ -623,54 +625,46 @@ def createTank(world, startx, starty, name, bodyRotation=0.0, gunRotation=0.0, i
         world.add_component(body, RotationSteering(rotateLeftKey=pygame.K_a, rotateRightKey=pygame.K_d))
         world.add_component(body, FiringSteering(fireGunKey=pygame.K_SPACE))
         world.add_component(gun, RotationSteering(rotateLeftKey=pygame.K_j, rotateRightKey=pygame.K_l))
-        world.add_component(body, PlayerInfo(name=name))
-    elif ENEMYS_HAVE_AI:
-        ais = {"monkey": monkeyAI, "rotator": rotatorAI, "fastRotator": fastAndSlowRotatorAI}
-        aiName, aiBrain = random.choice(list(ais.items()))
-        world.add_component(body, PlayerInfo(name="{}->{}".format(name, aiName)))
-        world.add_component(body, AI(aiBrain))
+        world.add_component(body, playerInfo)
+    else:
+        world.add_component(body, playerInfo)
+        world.add_component(body, AI(playerInfo.ai))
 
     world.add_component(body, Child(gun))
 
 
-def printScoresAndRankings(world):
+def printScoresAndRankings(players):
     # i[0] is entity id
     formatHeaders = "{:>25} | {:>5} | {:>4} | {:>4} | {:>5} |"
     formatScores = "{:>25} | {:>5} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
-    rankedPlayers = processRanks([p[1] for p in world.get_component(PlayerInfo)])
     print(formatHeaders.format("Name", "Score", "Rank", "Mu", "Sigma"))
-    for p in rankedPlayers:
+    for p in players:
         print(formatScores.format(p.name, p.score, p.rank, p.mu, p.sigma))
 
 
-def run():
-    # Initialize Pygame stuff
-    pygame.init()
-    window = pygame.display.set_mode(RESOLUTION)
-    pygame.display.set_caption("Tankbr")
-    clock = pygame.time.Clock()
-    pygame.key.set_repeat(1, 1)
-
-    # Initialize Esper world, and create a "player" Entity with a few Components.
+def initWorld():
     world = esper.World()
     events = world.create_entity()
     world.add_component(events, InputEvents())
+    return world, events
 
-    createTank(world=world, startx=0, starty=0, bodyRotation=0, gunRotation=0, isPlayer=True, name="<<Player>>")
 
-    for i in range(RANDOM_TANKS):
-        createTank(
-            world=world,
-            startx=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
-            starty=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
-            bodyRotation=random.randint(0, 359),
-            gunRotation=random.randint(0, 359),
-            name="Tank-{}".format(i),
-        )
+def createTanks(world, players):
+    for p in players:
+        if p.ai is None:
+            createTank(world=world, startx=0, starty=0, bodyRotation=0, gunRotation=0, playerInfo=p)
+        else:
+            createTank(
+                world=world,
+                startx=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
+                starty=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
+                bodyRotation=random.randint(0, 359),
+                gunRotation=random.randint(0, 359),
+                playerInfo=p,
+            )
 
-    # createTank(world=world, startx=100, starty=-100, bodyRotation=0, gunRotation=90)
-    # createTank(world=world, startx=-100, starty=200, bodyRotation=0, gunRotation=0)
 
+def prepareProcessors(world, events):
     gameEndProcessor = GameEndProcessor(turnsLeft=MAX_SIMULATION_TURNS, ammoTimeout=NO_AMMO_GAME_TIMEOUT)
     world.add_processor(InputEventCollector(events))
     world.add_processor(InputEventProcessor())
@@ -691,12 +685,31 @@ def run():
     world.add_processor(VelocityProcessor())
     world.add_processor(FiringGunProcessor())
     world.add_processor(GunReloadProcessor())
-    world.add_processor(RenderProcessor(window=window, clock=clock))
+    world.add_processor(RenderProcessor())
+    return gameEndProcessor
+
+
+def simulateGame(players):
+
+    world, events = initWorld()
+    createTanks(world, players)
+    gameEndProcessor = prepareProcessors(world, events)
 
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
         world.process()
-    printScoresAndRankings(world)
+    # rankedPlayers = processRanks([p[1] for p in world.get_component(PlayerInfo)])
+    rankedPlayers = processRanks(players)
+    printScoresAndRankings(rankedPlayers)
+    return rankedPlayers
+
+
+def run():
+    # Initialize Pygame stuff
+    pygame.init()
+    playerRepository = PlayerRepository()
+    players = playerRepository.generatePlayers(number=8, includeHumanPlayer=True)
+    simulateGame(players)
 
 
 if __name__ == "__main__":
