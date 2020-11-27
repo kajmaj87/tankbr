@@ -147,18 +147,12 @@ class GameEndProcessor(esper.Processor):
         if len(self.world.get_component(Agent)) <= 1:
             print("Game ended because there were no players to kill left")
             self.gameEndReason = self.GameEndReason.LAST_MAN_STANDING
-        for ent, inputEvents in self.world.get_component(InputEvents):
-            for event in inputEvents.events:
-                if event.type == pygame.QUIT:
-                    self.gameEndReason = self.GameEndReason.MANUAL
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.gameEndReason = self.GameEndReason.MANUAL
 
 
 class InputEventProcessor(esper.Processor):
-    def __init__(self):
+    def __init__(self, gameEndProcessor):
         super().__init__()
+        self.gameEndProcessor = gameEndProcessor
 
     def registerKeyActions(self, entity, key, actionKeyDown=None, actionKeyUp=None):
         for ent, inputEvents in self.world.get_component(InputEvents):
@@ -231,6 +225,15 @@ class InputEventProcessor(esper.Processor):
                         OFFSET_X += x
                         OFFSET_Y += y
 
+    def checkForQuit(self):
+        for ent, inputEvents in self.world.get_component(InputEvents):
+            for event in inputEvents.events:
+                if event.type == pygame.QUIT:
+                    self.gameEndReason = self.gameEndProcessor.GameEndReason.MANUAL
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.gameEndReason = self.gameEndProcessor.GameEndReason.MANUAL
+
     def process(self):
         for ent, (_, movementSteering) in self.world.get_components(Velocity, MovementSteering):
             self.steerMovement(ent, movementSteering)
@@ -239,6 +242,7 @@ class InputEventProcessor(esper.Processor):
         for ent, (_, firingSteering) in self.world.get_components(Gun, FiringSteering):
             self.fireGun(ent, firingSteering)
         self.doMouseActions()
+        self.checkForQuit()
 
 
 class FiringGunProcessor(esper.Processor):
@@ -415,6 +419,7 @@ class TotalScoreProcessor(esper.Processor):
 
         for ent, (agent, playerInfo) in self.world.get_components(Agent, PlayerInfo):
             playerInfo.score += 0.01
+
     # if not self.gameEndProcessor.isGameRunning():
     #     agentsLeft = self.world.get_components(Agent, PlayerInfo)
     #     for ent, (agent, totalScore) in agentsLeft:
@@ -433,8 +438,11 @@ class RenderProcessor(esper.Processor):
         self.clear_color = (0, 0, 0)
         self.currentFrame = 0
         self.lastFrameTimes = [0] * self.FRAME_AVG_SIZE
-        pygame.display.set_caption("Tankbr")
-        pygame.key.set_repeat(1, 1)
+        # Initialize Pygame stuff
+        if not pygame.get_init():
+            pygame.init()
+            pygame.display.set_caption("Tankbr")
+            pygame.key.set_repeat(1, 1)
 
     def blitRotate(self, surf, image, pos, originPos, angle, imageRotation):
         # calcaulate the axis aligned bounding box of the rotated image
@@ -636,14 +644,14 @@ def createTank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=
 
 
 def printScoresAndRankings(players):
-    formatHeaders = "{:>25} | {:>6} | {:>5} | {:>4} | {:>4} | {:>5} |"
-    formatScores = "{:>25} | {:>6} | {:>5.1f} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
-    print(formatHeaders.format("Name", "#Games", "Score", "Rank", "Mu", "Sigma"))
-    for p in sorted(players, key=lambda x: 50 if x.rank is None else -x.rank):
+    formatHeaders = "{:>25} | {:>3} | {:>6} | {:>5} | {:>4} | {:>4} | {:>5} |"
+    formatScores = "{:>25} | {:>3} | {:>6} | {:>5.1f} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
+    print(formatHeaders.format("Name", "#", "#Games", "Score", "Rank", "Mu", "Sigma"))
+    for place, p in enumerate(sorted(players, key=lambda x: 50 if x.rank is None else -x.rank)):
         rank = -50 if p.rank is None else p.rank
         mu = -50 if p.mu is None else p.mu
         sigma = -50 if p.sigma is None else p.sigma
-        print(formatScores.format(p.name, p.totalGames, p.score, rank, mu, sigma))
+        print(formatScores.format(p.name, place, p.totalGames, p.score, rank, mu, sigma))
 
 
 def initWorld():
@@ -668,10 +676,8 @@ def createTanks(world, players):
             )
 
 
-def prepareProcessors(world, events):
+def prepareProcessors(world, events, drawUI=True):
     gameEndProcessor = GameEndProcessor(turnsLeft=MAX_SIMULATION_TURNS, ammoTimeout=NO_AMMO_GAME_TIMEOUT)
-    world.add_processor(InputEventCollector(events))
-    world.add_processor(InputEventProcessor())
     world.add_processor(AIProcessor())
     world.add_processor(DecisionProcessor())
     world.add_processor(gameEndProcessor)
@@ -689,7 +695,10 @@ def prepareProcessors(world, events):
     world.add_processor(VelocityProcessor())
     world.add_processor(FiringGunProcessor())
     world.add_processor(GunReloadProcessor())
-    world.add_processor(RenderProcessor())
+    if drawUI:
+        world.add_processor(InputEventCollector(events))
+        world.add_processor(InputEventProcessor(gameEndProcessor))
+        world.add_processor(RenderProcessor())
     return gameEndProcessor
 
 
@@ -697,7 +706,7 @@ def simulateGame(players):
 
     world, events = initWorld()
     createTanks(world, players)
-    gameEndProcessor = prepareProcessors(world, events)
+    gameEndProcessor = prepareProcessors(world, events, drawUI=False)
 
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
@@ -706,19 +715,16 @@ def simulateGame(players):
     rankedPlayers = processRanks(players)
     for p in rankedPlayers:
         p.totalGames += 1
-    printScoresAndRankings(rankedPlayers)
     return rankedPlayers
 
 
 def run():
-    # Initialize Pygame stuff
-    pygame.init()
     playerRepository = PlayerRepository()
     PLAYERS = 64
     players = playerRepository.generatePlayers(number=PLAYERS, includeHumanPlayer=True)
     playerRepository.setPlayers(players)
-    randomize = True
-    for i in range(32):
+    randomize = False
+    for i in range(8):
         players = playerRepository.fetchPlayers()
         for j in range(PLAYERS // 8):
             if randomize:
@@ -726,8 +732,6 @@ def run():
             else:
                 nextMatchPlayers = players[j * 8 : (j + 1) * 8]
             print("Starting match from round {} for group {}".format(i, j))
-            print("Ratings before match:")
-            printScoresAndRankings(nextMatchPlayers)
 
             simulateGame(nextMatchPlayers)
             for p in players:
