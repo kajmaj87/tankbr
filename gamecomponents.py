@@ -118,6 +118,11 @@ class Explosive:
     pass
 
 
+class TTL:
+    def __init__(self, turns):
+        self.turns = turns
+
+
 class Gun:
     def __init__(self, gunEntity, ammo):
         self.gunEntity = gunEntity

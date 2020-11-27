@@ -31,6 +31,11 @@
 # - [ ] Player in different color
 # - [ ] Countdown on start
 # - [ ] Generating stating positions without overlap
+# - [ ] Optimization
+#   - [ ] Take compontents once, not inside for loops
+#   - [ ] Ammo should explode on its own after some time
+#   - [ ] Memoize for math.pow?
+
 
 import pygame
 import esper
@@ -56,6 +61,7 @@ from gamecomponents import (
     PositionBox,
     Solid,
     Explosive,
+    TTL,
     Gun,
     RangeFinder,
     FireGun,
@@ -285,9 +291,11 @@ class RangeFindingProcessor(esper.Processor):
         def dist_square(x1, y1, x2, y2):
             return math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2)
 
-        for ent, (position, finder) in self.world.get_components(PositionBox, RangeFinder):
+        finders = self.world.get_components(PositionBox, RangeFinder)
+        targets = self.world.get_components(PositionBox, Solid)
+        for ent, (position, finder) in finders:
             targets = []
-            for target, (targetPosition, solid) in self.world.get_components(PositionBox, Solid):
+            for target, (targetPosition, solid) in targets:
                 if position.x == targetPosition.x and position.y == targetPosition.y:
                     continue
                 # nice calculation at:
@@ -347,8 +355,9 @@ class CollisionProcessor(esper.Processor):
             move.distance *= -1
 
     def process(self):
-        for entityA, (positionA, solidA) in self.world.get_components(PositionBox, Solid):
-            for entityB, (positionB, solidB) in self.world.get_components(PositionBox, Solid):
+        solids = self.world.get_components(PositionBox, Solid)
+        for entityA, (positionA, solidA) in solids:
+            for entityB, (positionB, solidB) in solids:
                 if (entityA != entityB) and self.circlesCollide(
                     positionA.x,
                     positionA.y,
@@ -403,6 +412,18 @@ class InputEventCollector(esper.Processor):
         # FIXME Can be used to decouple further processors from
         # pygame by mapping those events to other objects
         self.world.component_for_entity(self.eventsEntity, InputEvents).events = pygame.event.get()
+
+
+class CleanupProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+
+    def process(self):
+        for ent, ttl in self.world.get_component(TTL):
+            if ttl.turns <= 0:
+                self.world.delete_entity(ent)
+            else:
+                ttl.turns -= 1
 
 
 class TotalScoreProcessor(esper.Processor):
@@ -550,14 +571,15 @@ MOVEMENT_SPEED = 6
 ROTATION_SPEED = 3
 
 GUN_LOADING_TIME = 30
-AMMO = 6
+AMMO = 5
 BULLET_SPEED = 20
 BULLET_POSITION_OFFSET = 36
+BULLET_TTL = 60
 
 LASER_RANGE = 400
 
 MAX_SIMULATION_TURNS = 450
-NO_AMMO_GAME_TIMEOUT = 60
+NO_AMMO_GAME_TIMEOUT = BULLET_TTL
 
 
 def increaseZoom():
@@ -593,6 +615,7 @@ def createBullet(world, ownerId, position):
     world.add_component(bullet, Velocity(speed=BULLET_SPEED, angularSpeed=0))
     world.add_component(bullet, Owner(ownerId))
     world.add_component(bullet, Explosive())
+    world.add_component(bullet, TTL(BULLET_TTL))
 
 
 def createTank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=0.0):
@@ -694,6 +717,7 @@ def prepareProcessors(world, events, drawUI=True):
     world.add_processor(RangeFindingProcessor())
     world.add_processor(VelocityProcessor())
     world.add_processor(FiringGunProcessor())
+    world.add_processor(CleanupProcessor())
     world.add_processor(GunReloadProcessor())
     if drawUI:
         world.add_processor(InputEventCollector(events))
