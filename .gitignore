@@ -1,4 +1,5 @@
 .tankbr
+.idea
 .env
 .hypothesis/
 __pycache__/

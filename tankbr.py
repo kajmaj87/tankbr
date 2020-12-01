@@ -282,6 +282,8 @@ class GunReloadProcessor(esper.Processor):
                 if gun.reloadTimeLeft == 0:
                     gun.isLoaded = True
 
+def square(a):
+    return a*a
 
 class RangeFindingProcessor(esper.Processor):
     def __init__(self):
@@ -289,27 +291,30 @@ class RangeFindingProcessor(esper.Processor):
 
     def process(self):
         def dist_square(x1, y1, x2, y2):
-            return math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2)
+            dx, dy = x1 - x2, y1 - y2
+            return dx*dx+dy*dy
 
         finders = self.world.get_components(PositionBox, RangeFinder)
         targets = self.world.get_components(PositionBox, Solid)
         for ent, (position, finder) in finders:
-            targets = []
+            fx = finder.maxRange * math.cos(math.radians(finder.angleOffset + position.rotation))
+            fy = finder.maxRange * math.sin(math.radians(finder.angleOffset + position.rotation))
+            foundTargets = []
             for target, (targetPosition, solid) in targets:
                 if position.x == targetPosition.x and position.y == targetPosition.y:
                     continue
                 # nice calculation at:
                 #   https://mathworld.wolfram.com/Circle-LineIntersection.html#:~:text=In%20geometry%2C%20a%20line%20meeting,429).
                 x1, y1 = position.x, position.y
-                x2 = x1 + finder.maxRange * math.cos(math.radians(finder.angleOffset + position.rotation))
-                y2 = y1 + finder.maxRange * math.sin(math.radians(finder.angleOffset + position.rotation))
-                maxRangeSqr = math.pow(finder.maxRange, 2)
+                x2 = x1 + fx
+                y2 = y1 + fy
+                maxRangeSqr = square(finder.maxRange)
                 maxRangeWithCollision = finder.maxRange + solid.collisionRadius
                 # range between and of laser and target is not bigger than max laser range
                 targetInFront = dist_square(targetPosition.x, targetPosition.y, x2, y2) < maxRangeSqr
                 targetInRange = (
-                    math.sqrt(dist_square(position.x, position.y, targetPosition.x, targetPosition.y))
-                    < maxRangeWithCollision
+                    dist_square(position.x, position.y, targetPosition.x, targetPosition.y)
+                    < square(maxRangeWithCollision)
                 )
                 x1, y1, x2, y2 = (
                     x1 - targetPosition.x,
@@ -319,28 +324,33 @@ class RangeFindingProcessor(esper.Processor):
                 )
                 dr_square = dist_square(x1, y1, x2, y2)
                 D = x1 * y2 - x2 * y1
-                delta = math.pow(solid.collisionRadius, 2) * dr_square - math.pow(D, 2)
+                delta = square(solid.collisionRadius) * dr_square - square(D)
                 # we have direct hit and it is in range of finder and in front of the finder
                 if delta > 0 and targetInFront and targetInRange:
-                    targets.append(targetPosition)
-            finder.foundTargets = targets
-            if len(targets) > 0:
+                    foundTargets.append(targetPosition)
+            finder.foundTargets = foundTargets
+            if len(foundTargets) > 0:
                 finder.closestTarget = min(
-                    targets,
-                    key=lambda targetPosition: math.pow(position.x - targetPosition.x, 2)
-                    + math.pow(position.y - targetPosition.y, 2),
+                    foundTargets,
+                    key=lambda targetPosition: square(position.x - targetPosition.x)
+                    + square(position.y - targetPosition.y),
                 )
             else:
                 finder.closestTarget = None
 
 
+def circlesCollide(x0, y0, r0, x1, y1, r1):
+    a = square(x0 - x1)
+    b = square(y0 - y1)
+    r_low = square(r0 - r1)
+    r_high = square(r0 + r1)
+    pointDifference = a + b
+    return r_low <= pointDifference and pointDifference <= r_high
+
+
 class CollisionProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
-
-    def circlesCollide(self, x0, y0, r0, x1, y1, r1):
-        pointDifference = math.pow(x0 - x1, 2) + math.pow(y0 - y1, 2)
-        return math.pow(r0 - r1, 2) <= pointDifference and pointDifference <= math.pow(r0 + r1, 2)
 
     def deleteWithChildren(self, entity):
         for info in self.world.try_component(entity, PlayerInfo):
@@ -358,7 +368,7 @@ class CollisionProcessor(esper.Processor):
         solids = self.world.get_components(PositionBox, Solid)
         for entityA, (positionA, solidA) in solids:
             for entityB, (positionB, solidB) in solids:
-                if (entityA != entityB) and self.circlesCollide(
+                if (entityA != entityB) and circlesCollide(
                     positionA.x,
                     positionA.y,
                     solidA.collisionRadius,
@@ -552,6 +562,7 @@ class RenderProcessor(esper.Processor):
 
 FPS = 3000
 RESOLUTION = 720, 480
+DRAW_UI = False
 # To decouple screen from game coordinates
 ZOOM = 1
 ZOOM_CHANGE_FACTOR = 0.1
@@ -730,7 +741,7 @@ def simulateGame(players):
 
     world, events = initWorld()
     createTanks(world, players)
-    gameEndProcessor = prepareProcessors(world, events, drawUI=False)
+    gameEndProcessor = prepareProcessors(world, events, drawUI=DRAW_UI)
 
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
@@ -743,12 +754,13 @@ def simulateGame(players):
 
 
 def run():
+    random.seed(1)
     playerRepository = PlayerRepository()
     PLAYERS = 64
     players = playerRepository.generatePlayers(number=PLAYERS, includeHumanPlayer=True)
     playerRepository.setPlayers(players)
     randomize = False
-    for i in range(8):
+    for i in range(80):
         players = playerRepository.fetchPlayers()
         for j in range(PLAYERS // 8):
             if randomize:
