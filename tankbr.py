@@ -43,7 +43,7 @@ import math
 import random
 from PlayerRepository import PlayerRepository
 from ranking import processRanks
-
+from mymath import square, circlesCollide, segmentAndCircleIntersect
 from gamecomponents import (
     PlayerInfo,
     Move,
@@ -282,51 +282,25 @@ class GunReloadProcessor(esper.Processor):
                 if gun.reloadTimeLeft == 0:
                     gun.isLoaded = True
 
-def square(a):
-    return a*a
 
 class RangeFindingProcessor(esper.Processor):
     def __init__(self):
         super().__init__()
 
     def process(self):
-        def dist_square(x1, y1, x2, y2):
-            dx, dy = x1 - x2, y1 - y2
-            return dx*dx+dy*dy
 
         finders = self.world.get_components(PositionBox, RangeFinder)
         targets = self.world.get_components(PositionBox, Solid)
         for ent, (position, finder) in finders:
             fx = finder.maxRange * math.cos(math.radians(finder.angleOffset + position.rotation))
             fy = finder.maxRange * math.sin(math.radians(finder.angleOffset + position.rotation))
+            endX, endY = position.x+fx, position.y+fy
             foundTargets = []
             for target, (targetPosition, solid) in targets:
                 if position.x == targetPosition.x and position.y == targetPosition.y:
                     continue
-                # nice calculation at:
-                #   https://mathworld.wolfram.com/Circle-LineIntersection.html#:~:text=In%20geometry%2C%20a%20line%20meeting,429).
-                x1, y1 = position.x, position.y
-                x2 = x1 + fx
-                y2 = y1 + fy
-                maxRangeSqr = square(finder.maxRange)
-                maxRangeWithCollision = finder.maxRange + solid.collisionRadius
-                # range between and of laser and target is not bigger than max laser range
-                targetInFront = dist_square(targetPosition.x, targetPosition.y, x2, y2) < maxRangeSqr
-                targetInRange = (
-                    dist_square(position.x, position.y, targetPosition.x, targetPosition.y)
-                    < square(maxRangeWithCollision)
-                )
-                x1, y1, x2, y2 = (
-                    x1 - targetPosition.x,
-                    y1 - targetPosition.y,
-                    x2 - targetPosition.x,
-                    y2 - targetPosition.y,
-                )
-                dr_square = dist_square(x1, y1, x2, y2)
-                D = x1 * y2 - x2 * y1
-                delta = square(solid.collisionRadius) * dr_square - square(D)
                 # we have direct hit and it is in range of finder and in front of the finder
-                if delta > 0 and targetInFront and targetInRange:
+                if segmentAndCircleIntersect(position.x, position.y, endX, endY, finder.maxRange, targetPosition.x, targetPosition.y, solid.collisionRadius):
                     foundTargets.append(targetPosition)
             finder.foundTargets = foundTargets
             if len(foundTargets) > 0:
@@ -337,15 +311,6 @@ class RangeFindingProcessor(esper.Processor):
                 )
             else:
                 finder.closestTarget = None
-
-
-def circlesCollide(x0, y0, r0, x1, y1, r1):
-    a = square(x0 - x1)
-    b = square(y0 - y1)
-    r_low = square(r0 - r1)
-    r_high = square(r0 + r1)
-    pointDifference = a + b
-    return r_low <= pointDifference and pointDifference <= r_high
 
 
 class CollisionProcessor(esper.Processor):
@@ -760,7 +725,7 @@ def run():
     players = playerRepository.generatePlayers(number=PLAYERS, includeHumanPlayer=True)
     playerRepository.setPlayers(players)
     randomize = False
-    for i in range(80):
+    for i in range(8):
         players = playerRepository.fetchPlayers()
         for j in range(PLAYERS // 8):
             if randomize:

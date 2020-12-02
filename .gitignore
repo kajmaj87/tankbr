@@ -4,3 +4,8 @@
 .hypothesis/
 __pycache__/
 tags
+*.c
+*.so
+*.html
+*.cprof
+build/
