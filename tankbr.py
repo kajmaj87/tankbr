@@ -209,7 +209,6 @@ class InputEventProcessor(esper.Processor):
         )
 
     def doMouseActions(self):
-        global OFFSET_X, OFFSET_Y
         # button events must go first so the screen does not jump when motion comes first
         for ent, inputEvents in self.world.get_component(InputEvents):
             for event in inputEvents.events:
@@ -229,8 +228,8 @@ class InputEventProcessor(esper.Processor):
                     leftMouseButtonPressed, _, _ = pygame.mouse.get_pressed(3)
                     if leftMouseButtonPressed:
                         x, y = pygame.mouse.get_rel()
-                        OFFSET_X += x
-                        OFFSET_Y += y
+                        config.gui_offset_x += x
+                        config.gui_offset_y += y
 
     def checkForQuit(self):
         for ent, inputEvents in self.world.get_component(InputEvents):
@@ -430,7 +429,7 @@ class RenderProcessor(esper.Processor):
 
     def __init__(self):
         super().__init__()
-        self.window = pygame.display.set_mode(RESOLUTION)
+        self.window = pygame.display.set_mode(config.gui_resolution)
         self.clock = pygame.time.Clock()
         self.clear_color = (0, 0, 0)
         self.currentFrame = 0
@@ -459,7 +458,7 @@ class RenderProcessor(esper.Processor):
         x, y = pos[0] - originPos[0] + min_x - pivot_move[0], pos[1] - originPos[1] + max_y - pivot_move[1]
 
         # get a rotated image
-        rotated_image = pygame.transform.rotozoom(image, angle + imageRotation, ZOOM)
+        rotated_image = pygame.transform.rotozoom(image, angle + imageRotation, config.gui_zoom)
         # rotate and blit the image
         surf.blit(rotated_image, self.transformCoordinates(x, y))
 
@@ -470,7 +469,7 @@ class RenderProcessor(esper.Processor):
         return sum(self.lastFrameTimes) / self.FRAME_AVG_SIZE
 
     def transformCoordinates(self, x, y):
-        return ZOOM * x + RESOLUTION[0] / 2 + OFFSET_X, -ZOOM * y + RESOLUTION[1] / 2 + OFFSET_Y
+        return config.gui_zoom * x + config.gui_resolution[0] / 2 + config.gui_offset_x, -config.gui_zoom * y + config.gui_resolution[1] / 2 + config.gui_offset_y
 
     def drawTank(self):
         for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
@@ -502,7 +501,7 @@ class RenderProcessor(esper.Processor):
     def drawUI(self):
         font = pygame.font.Font(None, 20)
         fps = font.render(
-            "FPS: {} (update took: {:.1f} ms (avg from {} FPS))".format(
+            "config.gui_max_fps: {} (update took: {:.1f} ms (avg from {} config.gui_max_fps))".format(
                 int(self.clock.get_fps()), self.getRawTimeAvg(), self.FRAME_AVG_SIZE
             ),
             True,
@@ -523,22 +522,12 @@ class RenderProcessor(esper.Processor):
         pygame.display.flip()
         self.addRawTime(self.clock.get_rawtime())
         self.currentFrame += 1
-        self.clock.tick(FPS)
+        self.clock.tick(config.gui_max_fps)
 
-
-FPS = 3000
-RESOLUTION = 720, 480
-DRAW_UI = False
-# To decouple screen from game coordinates
-ZOOM = 1
-ZOOM_CHANGE_FACTOR = 0.1
 
 FRAG_SCORE = 2
 LAST_MAN_STANDING_SCORE = 10
 SURVIVED_SCORE = 10
-
-OFFSET_X = 0
-OFFSET_Y = 0
 
 RANDOM_TANKS = 15
 SPAWN_RANGE = 200
@@ -560,13 +549,11 @@ NO_AMMO_GAME_TIMEOUT = BULLET_TTL
 
 
 def increaseZoom():
-    global ZOOM
-    ZOOM *= 1 + ZOOM_CHANGE_FACTOR
+    config.gui_zoom *= 1 + config.gui_zoom_change_factor
 
 
 def decreaseZoom():
-    global ZOOM
-    ZOOM *= 1 - ZOOM_CHANGE_FACTOR
+    config.gui_zoom *= 1 - config.gui_zoom_change_factor
 
 
 def createBullet(world, ownerId, position):
@@ -706,7 +693,7 @@ def prepareProcessors(world, events, drawUI=True):
 def simulateGame(players):
     world, events = initWorld()
     createTanks(world, players)
-    gameEndProcessor = prepareProcessors(world, events, drawUI=DRAW_UI)
+    gameEndProcessor = prepareProcessors(world, events, drawUI=config.gui_draw)
 
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:

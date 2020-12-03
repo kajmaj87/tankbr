@@ -4,3 +4,11 @@ rounds: 8
 match_size: 8
 
 random_seed: 1
+
+gui_draw: false
+gui_max_fps: 30
+gui_resolution: [720, 480]
+gui_zoom = 1
+gui_zoom_change_factor = 0.1
+gui_offset_x = 0
+gui_offset_y = 0
