@@ -44,6 +44,7 @@ import random
 from PlayerRepository import PlayerRepository
 from ranking import processRanks
 from mymath import square, circlesCollide, segmentAndCircleIntersect
+from argparser import config
 from gamecomponents import (
     PlayerInfo,
     Move,
@@ -294,20 +295,21 @@ class RangeFindingProcessor(esper.Processor):
         for ent, (position, finder) in finders:
             fx = finder.maxRange * math.cos(math.radians(finder.angleOffset + position.rotation))
             fy = finder.maxRange * math.sin(math.radians(finder.angleOffset + position.rotation))
-            endX, endY = position.x+fx, position.y+fy
+            endX, endY = position.x + fx, position.y + fy
             foundTargets = []
             for target, (targetPosition, solid) in targets:
                 if position.x == targetPosition.x and position.y == targetPosition.y:
                     continue
                 # we have direct hit and it is in range of finder and in front of the finder
-                if segmentAndCircleIntersect(position.x, position.y, endX, endY, finder.maxRange, targetPosition.x, targetPosition.y, solid.collisionRadius):
+                if segmentAndCircleIntersect(position.x, position.y, endX, endY, finder.maxRange, targetPosition.x,
+                                             targetPosition.y, solid.collisionRadius):
                     foundTargets.append(targetPosition)
             finder.foundTargets = foundTargets
             if len(foundTargets) > 0:
                 finder.closestTarget = min(
                     foundTargets,
                     key=lambda targetPosition: square(position.x - targetPosition.x)
-                    + square(position.y - targetPosition.y),
+                                               + square(position.y - targetPosition.y),
                 )
             else:
                 finder.closestTarget = None
@@ -334,12 +336,12 @@ class CollisionProcessor(esper.Processor):
         for entityA, (positionA, solidA) in solids:
             for entityB, (positionB, solidB) in solids:
                 if (entityA != entityB) and circlesCollide(
-                    positionA.x,
-                    positionA.y,
-                    solidA.collisionRadius,
-                    positionB.x,
-                    positionB.y,
-                    solidB.collisionRadius,
+                        positionA.x,
+                        positionA.y,
+                        solidA.collisionRadius,
+                        positionB.x,
+                        positionB.y,
+                        solidB.collisionRadius,
                 ):
                     if self.world.has_component(entityA, Explosive) or self.world.has_component(entityB, Explosive):
                         self.deleteWithChildren(entityA)
@@ -424,7 +426,6 @@ class TotalScoreProcessor(esper.Processor):
 
 
 class RenderProcessor(esper.Processor):
-
     FRAME_AVG_SIZE = 100
 
     def __init__(self):
@@ -703,7 +704,6 @@ def prepareProcessors(world, events, drawUI=True):
 
 
 def simulateGame(players):
-
     world, events = initWorld()
     createTanks(world, players)
     gameEndProcessor = prepareProcessors(world, events, drawUI=DRAW_UI)
@@ -719,19 +719,20 @@ def simulateGame(players):
 
 
 def run():
-    random.seed(1)
+    if config.random_seed is not None and config.random_seed != "disabled":
+        random.seed(config.random_seed)
+
     playerRepository = PlayerRepository()
-    PLAYERS = 64
-    players = playerRepository.generatePlayers(number=PLAYERS, includeHumanPlayer=True)
+    players = playerRepository.generatePlayers(number=config.players, includeHumanPlayer=config.include_human_player)
     playerRepository.setPlayers(players)
     randomize = False
-    for i in range(8):
+    for i in range(config.rounds):
         players = playerRepository.fetchPlayers()
-        for j in range(PLAYERS // 8):
+        for j in range(config.players // config.match_size):
             if randomize:
-                nextMatchPlayers = random.sample(players, 8)
+                nextMatchPlayers = random.sample(players, config.match_size)
             else:
-                nextMatchPlayers = players[j * 8 : (j + 1) * 8]
+                nextMatchPlayers = players[j * config.match_size: (j + 1) * config.match_size]
             print("Starting match from round {} for group {}".format(i, j))
 
             simulateGame(nextMatchPlayers)

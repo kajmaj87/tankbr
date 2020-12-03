@@ -1,0 +1,6 @@
+players: 64
+include_human_player: false
+rounds: 8
+match_size: 8
+
+random_seed: 1

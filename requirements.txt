@@ -1,3 +1,4 @@
 pygame==2.0.0
 trueskill==0.4.5
 -e git://github.com/benmoran56/esper.git@ad3606819b737efb122908c788320eee2b9fd26e#egg=esper
+ConfigArgParse==1.2.3
