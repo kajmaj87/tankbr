@@ -499,7 +499,7 @@ class RenderProcessor(esper.Processor):
     def drawUI(self):
         font = pygame.font.Font(None, 20)
         fps = font.render(
-            "config.gui_max_fps: {} (update took: {:.1f} ms (avg from {} config.gui_max_fps))".format(
+            "FPS: {} (update took: {:.1f} ms (avg from {} FPS))".format(
                 int(self.clock.get_fps()), self.getRawTimeAvg(), self.FRAME_AVG_SIZE
             ),
             True,
