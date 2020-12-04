@@ -297,15 +297,23 @@ class RangeFindingProcessor(esper.Processor):
                 if position.x == targetPosition.x and position.y == targetPosition.y:
                     continue
                 # we have direct hit and it is in range of finder and in front of the finder
-                if segmentAndCircleIntersect(position.x, position.y, endX, endY, finder.maxRange, targetPosition.x,
-                                             targetPosition.y, solid.collisionRadius):
+                if segmentAndCircleIntersect(
+                    position.x,
+                    position.y,
+                    endX,
+                    endY,
+                    finder.maxRange,
+                    targetPosition.x,
+                    targetPosition.y,
+                    solid.collisionRadius,
+                ):
                     foundTargets.append(targetPosition)
             finder.foundTargets = foundTargets
             if len(foundTargets) > 0:
                 finder.closestTarget = min(
                     foundTargets,
                     key=lambda targetPosition: square(position.x - targetPosition.x)
-                                               + square(position.y - targetPosition.y),
+                    + square(position.y - targetPosition.y),
                 )
             else:
                 finder.closestTarget = None
@@ -332,12 +340,12 @@ class CollisionProcessor(esper.Processor):
         for entityA, (positionA, solidA) in solids:
             for entityB, (positionB, solidB) in solids:
                 if (entityA != entityB) and circlesCollide(
-                        positionA.x,
-                        positionA.y,
-                        solidA.collisionRadius,
-                        positionB.x,
-                        positionB.y,
-                        solidB.collisionRadius,
+                    positionA.x,
+                    positionA.y,
+                    solidA.collisionRadius,
+                    positionB.x,
+                    positionB.y,
+                    solidB.collisionRadius,
                 ):
                     if self.world.has_component(entityA, Explosive) or self.world.has_component(entityB, Explosive):
                         self.deleteWithChildren(entityA)
@@ -467,7 +475,10 @@ class RenderProcessor(esper.Processor):
         return sum(self.lastFrameTimes) / self.FRAME_AVG_SIZE
 
     def transformCoordinates(self, x, y):
-        return config.gui_zoom * x + config.gui_resolution[0] / 2 + config.gui_offset_x, -config.gui_zoom * y + config.gui_resolution[1] / 2 + config.gui_offset_y
+        return (
+            config.gui_zoom * x + config.gui_resolution[0] / 2 + config.gui_offset_x,
+            -config.gui_zoom * y + config.gui_resolution[1] / 2 + config.gui_offset_y,
+        )
 
     def drawTank(self):
         for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
@@ -480,7 +491,9 @@ class RenderProcessor(esper.Processor):
             gunPosition = self.world.component_for_entity(gun.gunEntity, PositionBox)
             sin_a, cos_a = math.sin(math.radians(gunPosition.rotation)), math.cos(math.radians(gunPosition.rotation))
             x, y = self.transformCoordinates(gunPosition.x, gunPosition.y)
-            lx, ly = self.transformCoordinates(gunPosition.x + config.game_laser_range * cos_a, gunPosition.y + config.game_laser_range * sin_a)
+            lx, ly = self.transformCoordinates(
+                gunPosition.x + config.game_laser_range * cos_a, gunPosition.y + config.game_laser_range * sin_a
+            )
             pygame.draw.line(self.window, pygame.Color(255, 0, 0), (x, y), (lx, ly), 2)
 
     def drawNamesAndScores(self):
@@ -521,8 +534,6 @@ class RenderProcessor(esper.Processor):
         self.addRawTime(self.clock.get_rawtime())
         self.currentFrame += 1
         self.clock.tick(config.gui_max_fps)
-
-
 
 
 def increaseZoom():
@@ -649,7 +660,7 @@ def prepareProcessors(world, events, drawUI=True):
     world.add_processor(
         TotalScoreProcessor(
             gameEndProcessor=gameEndProcessor,
-            survivorScore=config.game_survived_score/config.game_max_match_turns,
+            survivorScore=config.game_survived_score / config.game_max_match_turns,
             lastManStandingScore=config.game_last_man_score,
         )
     )
@@ -696,7 +707,7 @@ def run():
             if randomize:
                 nextMatchPlayers = random.sample(players, config.match_size)
             else:
-                nextMatchPlayers = players[j * config.match_size: (j + 1) * config.match_size]
+                nextMatchPlayers = players[j * config.match_size : (j + 1) * config.match_size]
             print("Starting match from round {} for group {}".format(i, j))
 
             simulateGame(nextMatchPlayers)

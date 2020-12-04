@@ -6,6 +6,7 @@ import esper
 SURVIVOR_SCORE_PER_TURN = 0.02
 LAST_MAN_STANDING_SCORE = 3
 
+
 def createAgent(world, totalScore=0):
     agent = world.create_entity()
     world.add_component(agent, Agent())
@@ -18,7 +19,9 @@ def test_shouldAddScore(startingScore, pointsGained):
     world = esper.World()
     agent = createAgent(world, startingScore)
     world.add_processor(
-        TotalScoreProcessor(GameEndProcessor(turnsLeft=10, ammoTimeout=10), SURVIVOR_SCORE_PER_TURN, LAST_MAN_STANDING_SCORE)
+        TotalScoreProcessor(
+            GameEndProcessor(turnsLeft=10, ammoTimeout=10), SURVIVOR_SCORE_PER_TURN, LAST_MAN_STANDING_SCORE
+        )
     )
     world.create_entity(Score(agent, pointsGained))
     world.process()
