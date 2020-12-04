@@ -5,10 +5,24 @@ match_size: 8
 
 random_seed: 1
 
+game_frag_score: 1
+game_last_man_score: 3
+game_survived_score: 3
+game_spawn_range: 200
+game_movement_speed: 6
+game_rotation_speed: 3
+game_gun_load_time: 30
+game_ammo: 5
+game_bullet_speed: 20
+game_bullet_position_offset: 36
+game_bullet_ttl: 60
+game_laser_range: 400
+game_max_match_turns: 450
+
 gui_draw: false
 gui_max_fps: 30
 gui_resolution: [720, 480]
-gui_zoom = 1
-gui_zoom_change_factor = 0.1
-gui_offset_x = 0
-gui_offset_y = 0
+gui_zoom: 1
+gui_zoom_change_factor: 0.1
+gui_offset_x: 0
+gui_offset_y: 0

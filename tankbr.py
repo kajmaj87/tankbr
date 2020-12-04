@@ -6,15 +6,16 @@
 #   - [ ] Multihostprocessing
 # - [ ] v0.7
 #   - [ ] Multiprocessing
-#   - [ ] Optimization round
 # - [ ] v0.6
 #   - [ ] Genetic mutations for NN Ai
 #   - [ ] Simple NeuralNet AI
-# - [ ] v0.5
-#   - [ ] Tournaments
-#   - [ ] Seeding and game end checksums (replay functionality)
-# - [ ] v0.4
-#   - [ ] Headless simulations
+# - [X] v0.5
+#   - [X] Tournaments
+#   - [X] Seeding and game end checksums (replay functionality)
+#   - [X] Optimization round
+#   - [-] Code cleanup
+# - [X] v0.4
+#   - [X] Headless simulations
 #   - [X] More different AIs
 #   - [?] More rangefinders as input for AI (include constant input and random input also?)
 # - [X] v0.3.1
@@ -31,10 +32,6 @@
 # - [ ] Player in different color
 # - [ ] Countdown on start
 # - [ ] Generating stating positions without overlap
-# - [ ] Optimization
-#   - [ ] Take compontents once, not inside for loops
-#   - [ ] Ammo should explode on its own after some time
-#   - [ ] Memoize for math.pow?
 
 
 import pygame
@@ -177,10 +174,10 @@ class InputEventProcessor(esper.Processor):
             setAngularSpeed(ent, 0)
 
         def left(ent):
-            setAngularSpeed(ent, ROTATION_SPEED)
+            setAngularSpeed(ent, config.game_rotation_speed)
 
         def right(ent):
-            setAngularSpeed(ent, -ROTATION_SPEED)
+            setAngularSpeed(ent, -config.game_rotation_speed)
 
         self.registerKeyActions(entity, rotationSteering.rotateLeftKey, left, reset)
         self.registerKeyActions(entity, rotationSteering.rotateRightKey, right, reset)
@@ -193,10 +190,10 @@ class InputEventProcessor(esper.Processor):
             setSpeed(ent, 0)
 
         def forward(ent):
-            setSpeed(ent, MOVEMENT_SPEED)
+            setSpeed(ent, config.game_movement_speed)
 
         def backwards(ent):
-            setSpeed(ent, -MOVEMENT_SPEED)
+            setSpeed(ent, -config.game_movement_speed)
 
         self.registerKeyActions(entity, movementSteering.moveForwardKey, forward, reset)
         self.registerKeyActions(entity, movementSteering.moveBackwardsKey, backwards, reset)
@@ -276,7 +273,7 @@ class GunReloadProcessor(esper.Processor):
             # start loading gun if its not already loaded and has ammo left
             if gun.ammo > 0 and not gun.isLoaded and gun.reloadTimeLeft == 0:
                 self.world.component_for_entity(ent, Gun).ammo = gun.ammo - 1
-                gun.reloadTimeLeft = GUN_LOADING_TIME
+                gun.reloadTimeLeft = config.game_gun_load_time
             elif not gun.isLoaded and gun.reloadTimeLeft > 0:
                 gun.reloadTimeLeft -= 1
                 if gun.reloadTimeLeft == 0:
@@ -348,7 +345,7 @@ class CollisionProcessor(esper.Processor):
                         for owner in self.world.try_component(entityA, Owner):
                             # owner of the bullet may already be dead
                             if self.world.entity_exists(owner.ownerId):
-                                self.world.create_entity(Score(owner.ownerId, FRAG_SCORE))
+                                self.world.create_entity(Score(owner.ownerId, config.game_frag_score))
                     else:
                         self.revertMoveOnCollision(entityA)
 
@@ -410,18 +407,19 @@ class TotalScoreProcessor(esper.Processor):
         self.lastManStandingScore = lastManStandingScore
 
     def process(self):
+
         for ent, score in self.world.get_component(Score):
             self.world.component_for_entity(score.ownerId, PlayerInfo).score += score.points
             self.world.delete_entity(ent)
 
         for ent, (agent, playerInfo) in self.world.get_components(Agent, PlayerInfo):
-            playerInfo.score += 0.01
+            playerInfo.score += self.survivorScore
 
-    # if not self.gameEndProcessor.isGameRunning():
-    #     agentsLeft = self.world.get_components(Agent, PlayerInfo)
-    #     for ent, (agent, totalScore) in agentsLeft:
-    #         if len(agentsLeft) <= 1:
-    #           totalScore.score += self.lastManStandingScore
+        if not self.gameEndProcessor.isGameRunning():
+            agentsLeft = self.world.get_components(Agent, PlayerInfo)
+            for ent, (agent, totalScore) in agentsLeft:
+                if len(agentsLeft) <= 1:
+                    totalScore.score += self.lastManStandingScore
 
 
 class RenderProcessor(esper.Processor):
@@ -482,7 +480,7 @@ class RenderProcessor(esper.Processor):
             gunPosition = self.world.component_for_entity(gun.gunEntity, PositionBox)
             sin_a, cos_a = math.sin(math.radians(gunPosition.rotation)), math.cos(math.radians(gunPosition.rotation))
             x, y = self.transformCoordinates(gunPosition.x, gunPosition.y)
-            lx, ly = self.transformCoordinates(gunPosition.x + LASER_RANGE * cos_a, gunPosition.y + LASER_RANGE * sin_a)
+            lx, ly = self.transformCoordinates(gunPosition.x + config.game_laser_range * cos_a, gunPosition.y + config.game_laser_range * sin_a)
             pygame.draw.line(self.window, pygame.Color(255, 0, 0), (x, y), (lx, ly), 2)
 
     def drawNamesAndScores(self):
@@ -525,27 +523,6 @@ class RenderProcessor(esper.Processor):
         self.clock.tick(config.gui_max_fps)
 
 
-FRAG_SCORE = 2
-LAST_MAN_STANDING_SCORE = 10
-SURVIVED_SCORE = 10
-
-RANDOM_TANKS = 15
-SPAWN_RANGE = 200
-ENEMYS_HAVE_AI = True
-
-MOVEMENT_SPEED = 6
-ROTATION_SPEED = 3
-
-GUN_LOADING_TIME = 30
-AMMO = 5
-BULLET_SPEED = 20
-BULLET_POSITION_OFFSET = 36
-BULLET_TTL = 60
-
-LASER_RANGE = 400
-
-MAX_SIMULATION_TURNS = 450
-NO_AMMO_GAME_TIMEOUT = BULLET_TTL
 
 
 def increaseZoom():
@@ -562,8 +539,8 @@ def createBullet(world, ownerId, position):
     world.add_component(bullet, Solid(collisionRadius=10))
     # Bullet needs to be offset not to kill own tank
     dx, dy = (
-        BULLET_POSITION_OFFSET * math.cos(math.radians(position.rotation)),
-        BULLET_POSITION_OFFSET * math.sin(math.radians(position.rotation)),
+        config.game_bullet_position_offset * math.cos(math.radians(position.rotation)),
+        config.game_bullet_position_offset * math.sin(math.radians(position.rotation)),
     )
     world.add_component(
         bullet,
@@ -576,10 +553,10 @@ def createBullet(world, ownerId, position):
         ),
     )
     world.add_component(bullet, Renderable(image=bulletImage))
-    world.add_component(bullet, Velocity(speed=BULLET_SPEED, angularSpeed=0))
+    world.add_component(bullet, Velocity(speed=config.game_bullet_speed, angularSpeed=0))
     world.add_component(bullet, Owner(ownerId))
     world.add_component(bullet, Explosive())
-    world.add_component(bullet, TTL(BULLET_TTL))
+    world.add_component(bullet, TTL(config.game_bullet_ttl))
 
 
 def createTank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=0.0):
@@ -611,8 +588,8 @@ def createTank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=
     )
     world.add_component(gun, Velocity(speed=0, angularSpeed=0))
     world.add_component(gun, Rotate(gunRotation))
-    world.add_component(gun, RangeFinder(maxRange=LASER_RANGE, angleOffset=0))
-    world.add_component(body, Gun(gun, ammo=AMMO))
+    world.add_component(gun, RangeFinder(maxRange=config.game_laser_range, angleOffset=0))
+    world.add_component(body, Gun(gun, ammo=config.game_ammo))
 
     if playerInfo.ai is None:
         world.add_component(
@@ -655,8 +632,8 @@ def createTanks(world, players):
         else:
             createTank(
                 world=world,
-                startx=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
-                starty=random.randint(-SPAWN_RANGE, SPAWN_RANGE),
+                startx=random.randint(-config.game_spawn_range, config.game_spawn_range),
+                starty=random.randint(-config.game_spawn_range, config.game_spawn_range),
                 bodyRotation=random.randint(0, 359),
                 gunRotation=random.randint(0, 359),
                 playerInfo=p,
@@ -664,7 +641,7 @@ def createTanks(world, players):
 
 
 def prepareProcessors(world, events, drawUI=True):
-    gameEndProcessor = GameEndProcessor(turnsLeft=MAX_SIMULATION_TURNS, ammoTimeout=NO_AMMO_GAME_TIMEOUT)
+    gameEndProcessor = GameEndProcessor(turnsLeft=config.game_max_match_turns, ammoTimeout=config.game_bullet_ttl)
     world.add_processor(AIProcessor())
     world.add_processor(DecisionProcessor())
     world.add_processor(gameEndProcessor)
@@ -672,8 +649,8 @@ def prepareProcessors(world, events, drawUI=True):
     world.add_processor(
         TotalScoreProcessor(
             gameEndProcessor=gameEndProcessor,
-            survivorScore=SURVIVED_SCORE,
-            lastManStandingScore=LAST_MAN_STANDING_SCORE,
+            survivorScore=config.game_survived_score/config.game_max_match_turns,
+            lastManStandingScore=config.game_last_man_score,
         )
     )
     world.add_processor(MovementProcessor())

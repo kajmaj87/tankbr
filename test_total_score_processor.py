@@ -3,9 +3,8 @@ from hypothesis import given
 import hypothesis.strategies as st
 import esper
 
-SURVIVOR_SCORE = 2
+SURVIVOR_SCORE_PER_TURN = 0.02
 LAST_MAN_STANDING_SCORE = 3
-
 
 def createAgent(world, totalScore=0):
     agent = world.create_entity()
@@ -19,12 +18,12 @@ def test_shouldAddScore(startingScore, pointsGained):
     world = esper.World()
     agent = createAgent(world, startingScore)
     world.add_processor(
-        TotalScoreProcessor(GameEndProcessor(turnsLeft=10, ammoTimeout=10), SURVIVOR_SCORE, LAST_MAN_STANDING_SCORE)
+        TotalScoreProcessor(GameEndProcessor(turnsLeft=10, ammoTimeout=10), SURVIVOR_SCORE_PER_TURN, LAST_MAN_STANDING_SCORE)
     )
     world.create_entity(Score(agent, pointsGained))
     world.process()
 
-    assert world.component_for_entity(agent, PlayerInfo).score == startingScore + pointsGained
+    assert world.component_for_entity(agent, PlayerInfo).score == startingScore + pointsGained + SURVIVOR_SCORE_PER_TURN
 
 
 def test_shouldAddScoreAfterGameEndIfMoreThenOnePlayer():
@@ -33,11 +32,11 @@ def test_shouldAddScoreAfterGameEndIfMoreThenOnePlayer():
     agent2 = createAgent(world)
     gameEndProcessor = GameEndProcessor(turnsLeft=1, ammoTimeout=10)
     world.add_processor(gameEndProcessor)
-    world.add_processor(TotalScoreProcessor(gameEndProcessor, SURVIVOR_SCORE, LAST_MAN_STANDING_SCORE))
+    world.add_processor(TotalScoreProcessor(gameEndProcessor, SURVIVOR_SCORE_PER_TURN, LAST_MAN_STANDING_SCORE))
     world.process()
 
-    assert world.component_for_entity(agent1, PlayerInfo).score == SURVIVOR_SCORE
-    assert world.component_for_entity(agent2, PlayerInfo).score == SURVIVOR_SCORE
+    assert world.component_for_entity(agent1, PlayerInfo).score == SURVIVOR_SCORE_PER_TURN
+    assert world.component_for_entity(agent2, PlayerInfo).score == SURVIVOR_SCORE_PER_TURN
 
 
 def test_shouldAddScoreAfterGameEndIfTheOnlyVictor():
@@ -45,7 +44,7 @@ def test_shouldAddScoreAfterGameEndIfTheOnlyVictor():
     agent = createAgent(world)
     gameEndProcessor = GameEndProcessor(turnsLeft=10, ammoTimeout=10)
     world.add_processor(gameEndProcessor)
-    world.add_processor(TotalScoreProcessor(gameEndProcessor, SURVIVOR_SCORE, LAST_MAN_STANDING_SCORE))
+    world.add_processor(TotalScoreProcessor(gameEndProcessor, SURVIVOR_SCORE_PER_TURN, LAST_MAN_STANDING_SCORE))
     world.process()
 
-    assert world.component_for_entity(agent, PlayerInfo).score == SURVIVOR_SCORE + LAST_MAN_STANDING_SCORE
+    assert world.component_for_entity(agent, PlayerInfo).score == SURVIVOR_SCORE_PER_TURN + LAST_MAN_STANDING_SCORE
