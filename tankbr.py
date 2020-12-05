@@ -129,17 +129,17 @@ def run():
     playerRepository = PlayerRepository()
     players = playerRepository.generatePlayers(number=config.players, includeHumanPlayer=config.include_human_player)
     playerRepository.setPlayers(players)
-    randomize = False
     for i in range(config.rounds):
         players = playerRepository.fetchPlayers()
-        for j in range(config.players // config.match_size):
-            if randomize:
-                nextMatchPlayers = random.sample(players, config.match_size)
+        for j in range(config.players // config.match_size - (config.matching_spread-1)):
+            eligablePlayers = players[j * config.match_size : (j + config.matching_spread) * config.match_size]
+            if config.matching_spread>1:
+                nextMatchPlayers = random.sample(eligablePlayers, config.match_size)
             else:
                 nextMatchPlayers = players[j * config.match_size : (j + 1) * config.match_size]
             print("Starting match from round {} for group {}".format(i, j))
 
-            simulateGame(nextMatchPlayers, j == 0)
+            simulateGame(nextMatchPlayers, j==0 or j==config.players // config.match_size - (config.matching_spread-1) - 1)
             for p in players:
                 p.score = 0
         print("Rankings after {} round:".format(i))
