@@ -4,17 +4,16 @@
 # RoadMap:
 # - [ ] v0.x
 #   - [ ] Multihostprocessing
-# - [ ] v0.7
-#   - [ ] Multiprocessing
 # - [ ] v0.6
+#   - [ ] Multiprocessing
+# - [ ] v0.5
 #   - [ ] Genetic mutations for NN Ai
 #   - [ ] Simple NeuralNet AI
-# - [X] v0.5
+# - [X] v0.4
 #   - [X] Tournaments
 #   - [X] Seeding and game end checksums (replay functionality)
 #   - [X] Optimization round
-#   - [-] Code cleanup
-# - [X] v0.4
+#   - [X] Code cleanup
 #   - [X] Headless simulations
 #   - [X] More different AIs
 #   - [?] More rangefinders as input for AI (include constant input and random input also?)
