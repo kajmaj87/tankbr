@@ -7,13 +7,14 @@ from gamecomponents import FireGun, Move, RotateGun, Rotate, Decision
 
 from fann2 import libfann
 
+
 def createModel(randomRange, seed):
     random.seed(seed)
 
     model = libfann.neural_net()
 
-    model.create_standard_array([2,12,8,7])
-    model.randomize_weights(-randomRange,randomRange)
+    model.create_standard_array([2, 12, 8, 7])
+    model.randomize_weights(-randomRange, randomRange)
 
     return model
 

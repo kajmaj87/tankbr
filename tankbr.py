@@ -107,10 +107,10 @@ def prepareProcessors(world, events, drawUI=True):
     return gameEndProcessor
 
 
-def simulateGame(players):
+def simulateGame(players, draw):
     world, events = initWorld()
     create.tanks(world, players)
-    gameEndProcessor = prepareProcessors(world, events, drawUI=config.gui_draw)
+    gameEndProcessor = prepareProcessors(world, events, drawUI=draw)
 
     while gameEndProcessor.isGameRunning():
         # A single call to world.process() will update all Processors:
@@ -139,7 +139,7 @@ def run():
                 nextMatchPlayers = players[j * config.match_size : (j + 1) * config.match_size]
             print("Starting match from round {} for group {}".format(i, j))
 
-            simulateGame(nextMatchPlayers)
+            simulateGame(nextMatchPlayers, j==0)
             for p in players:
                 p.score = 0
         print("Rankings after {} round:".format(i))
