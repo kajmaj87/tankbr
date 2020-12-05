@@ -3,6 +3,8 @@ from ai import monkeyAI, dummyAI, dummyRotatorAI, rotatorAI, fastAndSlowRotatorA
 
 import random
 
+from networks import neuralAI
+
 
 class PlayerRepository:
     def __init__(self):
@@ -16,6 +18,13 @@ class PlayerRepository:
             "dummyRotator": dummyRotatorAI,
             "rotator": rotatorAI,
             "fastRotator": fastAndSlowRotatorAI,
+        }
+        ais = {
+            "1": neuralAI(1),
+            "2": neuralAI(2),
+            "3": neuralAI(3),
+            "4": neuralAI(4),
+            "5": neuralAI(5),
         }
         for i in range(number):
             if includeHumanPlayer and i == 0:
