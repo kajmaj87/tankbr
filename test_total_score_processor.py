@@ -1,7 +1,9 @@
-from tankbr import TotalScoreProcessor, Score, PlayerInfo, Agent, GameEndProcessor
 from hypothesis import given
 import hypothesis.strategies as st
 import esper
+
+from gamecomponents import Agent, PlayerInfo, Score
+from logic import TotalScoreProcessor, GameEndProcessor
 
 SURVIVOR_SCORE_PER_TURN = 0.02
 LAST_MAN_STANDING_SCORE = 3

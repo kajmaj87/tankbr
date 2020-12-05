@@ -3,8 +3,18 @@ import math
 import esper
 import pygame
 from argparser import config
-from gamecomponents import Renderable, PositionBox, Gun, PlayerInfo, InputEvents, Velocity, FireGun, MovementSteering, \
-    RotationSteering, FiringSteering
+from gamecomponents import (
+    Renderable,
+    PositionBox,
+    Gun,
+    PlayerInfo,
+    InputEvents,
+    Velocity,
+    FireGun,
+    MovementSteering,
+    RotationSteering,
+    FiringSteering,
+)
 
 
 class RenderProcessor(esper.Processor):
@@ -207,6 +217,7 @@ class InputEventProcessor(esper.Processor):
         self.doMouseActions()
         self.checkForQuit()
 
+
 class InputEventCollector(esper.Processor):
     def __init__(self, eventsEntity):
         super().__init__()
@@ -216,6 +227,7 @@ class InputEventCollector(esper.Processor):
         # FIXME Can be used to decouple further processors from
         # pygame by mapping those events to other objects
         self.world.component_for_entity(self.eventsEntity, InputEvents).events = pygame.event.get()
+
 
 def increaseZoom():
     config.gui_zoom *= 1 + config.gui_zoom_change_factor

@@ -1,11 +1,14 @@
-from tankbr import RangeFindingProcessor, RangeFinder, PositionBox, Solid
-import esper
 import math
-from hypothesis import given
-import hypothesis.strategies as st
 
+import esper
+import hypothesis.strategies as st
+from hypothesis import given
 
 # We check for translation invariant here also
+from gamecomponents import PositionBox, Solid, RangeFinder
+from logic import RangeFindingProcessor
+
+
 @given(xt=st.floats(max_value=1000, min_value=-1000), yt=st.floats(max_value=1000, min_value=-1000))
 def test_shouldFindTargetOnRight(xt, yt):
     world = esper.World()

@@ -5,7 +5,7 @@ p.add("-c", "--config", is_config_file=True, help="config file path with default
 p.add("-r", "--rounds", type=int, help="how many full rounds to generate. round means (players/match_size) matches")
 p.add("-m", "--match_size", type=int, help="how many players should take part in one match")
 p.add("-p", "--players", type=int, help="how many players to genarate")
-p.add("--include_human_player", type=bool, help="true to allow human player to play")
+p.add("--include_human_player", action="store_true", help="true to allow human player to play")
 p.add("--random_seed", help="random seed to use, pass `disabled` to turn off using seed")
 
 p.add("--gui_draw", action="store_true", help="pass this argument to draw the game")

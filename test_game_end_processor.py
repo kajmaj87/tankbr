@@ -1,5 +1,7 @@
-from tankbr import GameEndProcessor, Agent, Gun
 import esper
+
+from gamecomponents import Gun, Agent
+from logic import GameEndProcessor
 
 
 def createAgent(world, ammo=1):

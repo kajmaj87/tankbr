@@ -1,9 +1,12 @@
-from tankbr import MovementProcessor, Move, PositionBox
-import esper
 import math
-from hypothesis import given
+
+import esper
 import hypothesis.strategies as st
 import pytest
+from hypothesis import given
+
+from gamecomponents import Move, PositionBox
+from logic import MovementProcessor
 
 smallFloatStrategy = st.floats(min_value=-100, max_value=100)
 angleStrategy = st.floats(min_value=-720, max_value=720)
