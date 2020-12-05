@@ -2,47 +2,35 @@ import sys
 import random
 from random import randint
 
-from tensorflow.keras import layers, initializers
-from tensorflow.python.keras.models import Sequential
-import keras
-
 from argparser import config
 from gamecomponents import FireGun, Move, RotateGun, Rotate, Decision
 
-keras.backend.set_learning_phase(0)
+from fann2 import libfann
 
-def createModel(stddev, seed):
+def createModel(randomRange, seed):
     random.seed(seed)
 
-    model = Sequential()
-    model.add(
-        layers.Dense(12, input_dim=2, activation="relu",
-                     kernel_initializer=initializers.RandomNormal(stddev=stddev, seed=randint(0, sys.maxsize - 1))))
-    model.add(layers.Dense(8, activation="relu", kernel_initializer=initializers.RandomNormal(stddev=stddev,
-                                                                                              seed=randint(0,
-                                                                                                           sys.maxsize - 1))))
-    model.add(layers.Dense(7, activation="sigmoid", kernel_initializer=initializers.RandomNormal(stddev=stddev,
-                                                                                                 seed=randint(0,
-                                                                                                              sys.maxsize - 1))))
+    model = libfann.neural_net()
 
-    # print(model.summary())
-    # print(model.get_weights())
-    # print(model.predict([[1, 0], [1,1], [0,1], [0,0]]))
+    model.create_standard_array([2,12,8,7])
+    model.randomize_weights(-randomRange,randomRange)
+
     return model
 
 
 ACTIVATION_THRESHOLD = 0.5
+RANDOM_RANGE = 3
 
 
 def neuralAI(seed):
-    model = createModel(3, seed)
+    model = createModel(RANDOM_RANGE, seed)
 
     def decide(perception, memory):
         if perception.target is not None:
             found = 1
         else:
             found = 0
-        result = model.predict([[random.random(), found]], batch_size=1)[0]
+        result = model.run([random.random(), found])
         commands = []
         if result[0] > ACTIVATION_THRESHOLD:
             commands.append(FireGun())

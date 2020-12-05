@@ -12,20 +12,15 @@ class PlayerRepository:
 
     def generatePlayers(self, number, includeHumanPlayer=False):
         result = []
-        ais = {
+        nonNNAis = {
             "monkey": monkeyAI,
             "dummy": dummyAI,
             "dummyRotator": dummyRotatorAI,
             "rotator": rotatorAI,
             "fastRotator": fastAndSlowRotatorAI,
         }
-        ais = {
-            "1": neuralAI(1),
-            "2": neuralAI(2),
-            "3": neuralAI(3),
-            "4": neuralAI(4),
-            "5": neuralAI(5),
-        }
+        nnAis = {i: neuralAI(i) for i in range(number - 5)}
+        ais = {**nonNNAis, **nnAis}
         for i in range(number):
             if includeHumanPlayer and i == 0:
                 playerInfo = PlayerInfo(name="<<Player>>")
