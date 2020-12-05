@@ -15,5 +15,11 @@ $ pip install -r requirements.txt
 ```
 Run the project with
 ```bash
-$ ./tankbr.py
+$ ./tankbr.py --gui_draw
 ```
+To see all run parameters use
+```bash
+$ ./tankbr.py -h
+```
+
+Edit ``config`` file to set the default run paramters (names are same as in -h manual)
