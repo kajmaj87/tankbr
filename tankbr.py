@@ -132,8 +132,8 @@ def simulateGame(players, draw):
     return rankedPlayers
 
 
-def shouldDrawThisMatch(currentMatch, totalMatches):
-    return (
+def shouldDrawThisMatch(currentRound, currentMatch, totalMatches):
+    return currentRound % config.gui_draw_every_nth_round == 0 and (
         config.gui_draw
         or (config.gui_draw_best_match and currentMatch == 0)
         or (config.gui_draw_worst_match and currentMatch == totalMatches - 1)
@@ -164,7 +164,7 @@ def run():
                 nextMatchPlayers = players[j * config.match_size : (j + 1) * config.match_size]
             # print("Starting match from round {} for group {}".format(i, j))
 
-            simulateGame(nextMatchPlayers, shouldDrawThisMatch(j, totalMatches))
+            simulateGame(nextMatchPlayers, shouldDrawThisMatch(i, j, totalMatches))
             for p in players:
                 p.score = 0
         amountRemoved = playerRepository.removeWorstPlayers(

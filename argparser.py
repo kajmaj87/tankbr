@@ -22,6 +22,7 @@ p.add(
 )
 
 p.add("--gui_draw", action="store_true", help="draw all matches in game")
+p.add("--gui_draw_every_nth_round", type=int, help="draw only each nth round")
 p.add("--gui_draw_best_match", action="store_true", help="always draw the best match")
 p.add("--gui_draw_worst_match", action="store_true", help="always draw the worst match")
 p.add("--gui_max_fps", type=int)

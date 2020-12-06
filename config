@@ -1,14 +1,14 @@
-players: 64
+players: 56
 include_human_player: false
 rounds: 8
 match_size: 8
-matching_spread: 1
+matching_spread: 2
 
 random_seed: 1
 
 game_frag_score: 1
-game_last_man_score: 3
-game_survived_score: 3
+game_last_man_score: 0
+game_survived_score: 0.5
 game_spawn_range: 200
 game_movement_speed: 6
 game_rotation_speed: 3
@@ -17,15 +17,16 @@ game_ammo: 5
 game_bullet_speed: 20
 game_bullet_position_offset: 36
 game_bullet_ttl: 60
-game_laser_range: 400
+game_laser_range: 500
 game_max_match_turns: 450
 
-gen_worst_quantile: 0.2
-gen_min_sigma: 1.0
+gen_worst_quantile: 0.4
+gen_min_sigma: 0.75
 
 gui_draw: false
 gui_draw_best_match: false
 gui_draw_worst_match: false
+gui_draw_every_nth_round: 100
 gui_max_fps: 30
 gui_resolution: [1200, 900]
 gui_zoom: 1
