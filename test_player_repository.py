@@ -6,6 +6,7 @@ from gamecomponents import PlayerInfo
 repo = None
 p1, p2 = None, None
 
+
 @pytest.fixture(autouse=True)
 def initPlayers():
     global repo, p1, p2
@@ -16,12 +17,12 @@ def initPlayers():
     repo.setPlayers([p1, p2])
 
 
-
 def test_remove_worst_players_too_low_sigma():
     removed = repo.removeWorstPlayers(quantile=1, minSigma=2)
 
     assert len(removed) == 0
     assert len(repo.fetchPlayers()) == 2
+
 
 def test_remove_worst_players_too_middle_sigma():
     removed = repo.removeWorstPlayers(quantile=1, minSigma=4)
@@ -45,4 +46,3 @@ def test_remove_worst_players_too_big_sigma_but_limited_amount_should_remove_wor
     assert len(removed) == 1
     assert len(repo.fetchPlayers()) == 1
     assert repo.fetchPlayers() == [p2]
-

@@ -14,7 +14,12 @@ p.add("-p", "--players", type=int, help="how many players to genarate")
 p.add("--include_human_player", action="store_true", help="true to allow human player to play")
 p.add("--random_seed", help="random seed to use, pass `disabled` to turn off using seed")
 p.add("-g", "--gen_min_sigma", type=float, help="minimum rank certainty before being kicked out of tournament")
-p.add("-q", "--gen_worst_quantile", type=float, help="amount of worst players considered to be kicked out after each round")
+p.add(
+    "-q",
+    "--gen_worst_quantile",
+    type=float,
+    help="amount of worst players considered to be kicked out after each round",
+)
 
 p.add("--gui_draw", action="store_true", help="draw all matches in game")
 p.add("--gui_draw_best_match", action="store_true", help="always draw the best match")
