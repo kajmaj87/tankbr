@@ -4,12 +4,21 @@ p = configargparse.ArgParser(default_config_files=["config"])
 p.add("-c", "--config", is_config_file=True, help="config file path with defaults")
 p.add("-r", "--rounds", type=int, help="how many full rounds to generate. round means (players/match_size) matches")
 p.add("-m", "--match_size", type=int, help="how many players should take part in one match")
-p.add("-s", "--matching_spread", type=int, help="how far (in terms of match size) should players be sampled from. If you use 1 then no sampling will be made and players of most similar skill will play together")
+p.add(
+    "-s",
+    "--matching_spread",
+    type=int,
+    help="how far (in terms of match size) should players be sampled from. If you use 1 then no sampling will be made and players of most similar skill will play together",
+)
 p.add("-p", "--players", type=int, help="how many players to genarate")
 p.add("--include_human_player", action="store_true", help="true to allow human player to play")
 p.add("--random_seed", help="random seed to use, pass `disabled` to turn off using seed")
+p.add("-g", "--gen_min_sigma", type=float, help="minimum rank certainty before being kicked out of tournament")
+p.add("-q", "--gen_worst_quantile", type=float, help="amount of worst players considered to be kicked out after each round")
 
-p.add("--gui_draw", action="store_true", help="pass this argument to draw the game")
+p.add("--gui_draw", action="store_true", help="draw all matches in game")
+p.add("--gui_draw_best_match", action="store_true", help="always draw the best match")
+p.add("--gui_draw_worst_match", action="store_true", help="always draw the worst match")
 p.add("--gui_max_fps", type=int)
 p.add(
     "--gui_resolution",

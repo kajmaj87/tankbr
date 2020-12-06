@@ -20,9 +20,14 @@ game_bullet_ttl: 60
 game_laser_range: 400
 game_max_match_turns: 450
 
+gen_worst_quantile: 0.2
+gen_min_sigma: 1.0
+
 gui_draw: false
+gui_draw_best_match: false
+gui_draw_worst_match: false
 gui_max_fps: 30
-gui_resolution: [720, 480]
+gui_resolution: [1200, 900]
 gui_zoom: 1
 gui_zoom_change_factor: 0.1
 gui_offset_x: 0

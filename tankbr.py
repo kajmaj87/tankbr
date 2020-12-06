@@ -34,6 +34,8 @@
 
 
 import random
+import numpy as np
+import math
 
 import esper
 import pygame
@@ -61,16 +63,23 @@ from logic import (
 )
 from ranking import processRanks
 
+totalRemoved = []
 
-def printScoresAndRankings(players):
+def printScoresAndRankings(round, players, removed, quantile):
+    global totalRemoved
     formatHeaders = "{:>25} | {:>3} | {:>6} | {:>5} | {:>4} | {:>4} | {:>5} |"
     formatScores = "{:>25} | {:>3} | {:>6} | {:>5.1f} | {:>4.1f} | {:>4.1f} | {:>5.2f} |"
-    print(formatHeaders.format("Name", "#", "#Games", "Score", "Rank", "Mu", "Sigma"))
+    print(formatHeaders.format("Round "+str(round), "#", "#Games", "Score", "Rank", "Mu", "Sigma"))
+    cutoff = math.floor(len(players) * (1-quantile))
     for place, p in enumerate(sorted(players, key=lambda x: 50 if x.rank is None else -x.rank)):
         rank = -50 if p.rank is None else p.rank
         mu = -50 if p.mu is None else p.mu
         sigma = -50 if p.sigma is None else p.sigma
         print(formatScores.format(p.name, place, p.totalGames, p.score, rank, mu, sigma))
+        if cutoff == place:
+            totalRemoved = (totalRemoved + removed)[-10:]
+            removedNames = [p.name + " ({})".format(p.totalGames) for p in totalRemoved]
+            print("{} Died: {}".format("-"*10, ','.join(removedNames).rjust(80, "-")))
 
 
 def initWorld():
@@ -122,6 +131,15 @@ def simulateGame(players, draw):
     return rankedPlayers
 
 
+def shouldDrawThisMatch(currentMatch, totalMatches):
+    return config.gui_draw or (config.gui_draw_best_match and currentMatch == 0) or (
+                config.gui_draw_worst_match and currentMatch == totalMatches - 1)
+
+def sampleBasedOnSigma(players, sampleSize):
+    weights = [200 if p.sigma is None else p.sigma**2 for p in players]
+    s = sum(weights)
+    return np.random.choice(players, sampleSize, p=[w/s for w in weights], replace=False)
+
 def run():
     if config.random_seed is not None and config.random_seed != "disabled":
         random.seed(config.random_seed)
@@ -129,24 +147,26 @@ def run():
     playerRepository = PlayerRepository()
     players = playerRepository.generatePlayers(number=config.players, includeHumanPlayer=config.include_human_player)
     playerRepository.setPlayers(players)
+    totalMatches = config.players // config.match_size - (config.matching_spread - 1)
     for i in range(config.rounds):
-        players = playerRepository.fetchPlayers()
-        for j in range(config.players // config.match_size - (config.matching_spread-1)):
-            eligablePlayers = players[j * config.match_size : (j + config.matching_spread) * config.match_size]
-            if config.matching_spread>1:
-                nextMatchPlayers = random.sample(eligablePlayers, config.match_size)
+        players = playerRepository.fetchPlayers(sort=True)
+        for j in range(totalMatches):
+            eligablePlayers = players[j * config.match_size: (j + config.matching_spread) * config.match_size]
+            if config.matching_spread > 1:
+                nextMatchPlayers = sampleBasedOnSigma(eligablePlayers, config.match_size)
             else:
-                nextMatchPlayers = players[j * config.match_size : (j + 1) * config.match_size]
-            print("Starting match from round {} for group {}".format(i, j))
+                nextMatchPlayers = players[j * config.match_size: (j + 1) * config.match_size]
+            # print("Starting match from round {} for group {}".format(i, j))
 
-            simulateGame(nextMatchPlayers, j==0 or j==config.players // config.match_size - (config.matching_spread-1) - 1)
+            simulateGame(
+                nextMatchPlayers, shouldDrawThisMatch(j, totalMatches)
+            )
             for p in players:
                 p.score = 0
-        print("Rankings after {} round:".format(i))
-        printScoresAndRankings(players)
-
-    printScoresAndRankings(players)
-
+        amountRemoved = playerRepository.removeWorstPlayers(quantile=config.gen_worst_quantile, minSigma=config.gen_min_sigma)
+        newPlayers = playerRepository.generateNNAIPlayers(len(amountRemoved))
+        playerRepository.setPlayers(playerRepository.fetchPlayers() + newPlayers)
+        printScoresAndRankings(i, players, amountRemoved, config.gen_worst_quantile)
 
 if __name__ == "__main__":
     run()

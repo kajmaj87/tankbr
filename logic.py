@@ -101,17 +101,17 @@ class GameEndProcessor(esper.Processor):
         if self.noAmmoCountdown:
             self.noAmmoTurnsLeft -= 1
             if self.noAmmoTurnsLeft <= 0:
-                print("Game ended because no one had bullets left")
+                # print("Game ended because no one had bullets left")
                 self.gameEndReason = self.GameEndReason.OUT_OF_AMMO
         if all(g.ammo == 0 for e, g in self.world.get_component(Gun)) and not self.noAmmoCountdown:
-            print("No bullets countdown started")
+            # print("No bullets countdown started")
             self.noAmmoCountdown = True
             self.noAmmoTurnsLeft = self.ammoTimeout
         if self.turnsLeft <= 0:
-            print("Game ended because time run out")
+            # print("Game ended because time run out")
             self.gameEndReason = self.GameEndReason.OUT_OF_TIME
         if len(self.world.get_component(Agent)) <= 1:
-            print("Game ended because there were no players to kill left")
+            # print("Game ended because there were no players to kill left")
             self.gameEndReason = self.GameEndReason.LAST_MAN_STANDING
         if not self.isGameRunning():
             for callback in self.gameEndCallbacks:
