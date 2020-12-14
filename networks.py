@@ -5,11 +5,13 @@ from gamecomponents import FireGun, Move, RotateGun, Rotate, Decision
 
 from network_processor import create_model
 
+
 def createModel(randomRange, seed):
-    model = create_model([2,12,8,7], seed=seed, random_scale=randomRange)
+    model = create_model([2, 12, 8, 7], seed=seed, random_scale=randomRange)
     return model
 
-#def createChild(mother, father):
+
+# def createChild(mother, father):
 #    motherConnections = netToArrayOfTuples(mother)
 #    fatherConnections = netToArrayOfTuples(father)
 #

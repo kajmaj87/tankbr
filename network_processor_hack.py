@@ -28,9 +28,7 @@ def connectionStringToArrayOfTuples(connections):
 
 
 def updateConnectionString(sourceFile, destinationFile, newConnections):
-    connectionString = "connections (connected_to_neuron, weight)={}".format(
-        newConnections
-    )
+    connectionString = "connections (connected_to_neuron, weight)={}".format(newConnections)
     with open(sourceFile, "r") as source:
         lines = source.read().splitlines()
         for i in range(1, len(lines)):
