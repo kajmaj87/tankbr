@@ -14,7 +14,7 @@ game_movement_speed: 6
 game_rotation_speed: 3
 game_gun_load_time: 30
 game_ammo: 5
-game_bullet_speed: 20
+game_bullet_speed: 25
 game_bullet_position_offset: 36
 game_bullet_ttl: 60
 game_laser_range: 500

@@ -1,22 +1,23 @@
-import sys
 import random
-from random import randint
 
 from argparser import config
 from gamecomponents import FireGun, Move, RotateGun, Rotate, Decision
 
-from fann2 import libfann
-
+from network_processor import create_model
 
 def createModel(randomRange, seed):
-    random.seed(seed)
-
-    model = libfann.neural_net()
-
-    model.create_standard_array([2, 12, 8, 7])
-    model.randomize_weights(-randomRange, randomRange)
-
+    model = create_model([2,12,8,7], seed=seed, random_scale=randomRange)
     return model
+
+#def createChild(mother, father):
+#    motherConnections = netToArrayOfTuples(mother)
+#    fatherConnections = netToArrayOfTuples(father)
+#
+#    childConnections = []
+#    for i in range(len(motherConnections)):
+#        childConnections[i] = random.choice([motherConnections[i], fatherConnections[i]])
+#
+#    return copyModelWithDifferentConnecions(mother, childConnections)
 
 
 ACTIVATION_THRESHOLD = 0.5
@@ -31,7 +32,7 @@ def neuralAI(seed):
             found = 1
         else:
             found = 0
-        result = model.run([random.random(), found])
+        result = model.run([[random.random()], [found]])
         commands = []
         if result[0] > ACTIVATION_THRESHOLD:
             commands.append(FireGun())
