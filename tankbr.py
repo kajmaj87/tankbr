@@ -61,6 +61,7 @@ from logic import (
     CleanupProcessor,
     GunReloadProcessor,
 )
+from network_processor import make_child
 from ranking import processRanks
 
 totalRemoved = []
@@ -170,7 +171,16 @@ def run():
         amountRemoved = playerRepository.removeWorstPlayers(
             quantile=config.gen_worst_quantile, minSigma=config.gen_min_sigma
         )
-        newPlayers = playerRepository.generateNNAIPlayers(len(amountRemoved))
+        newPlayers = []
+        for n in range(len(amountRemoved)):
+            players_with_nets = playerRepository.fetchPlayers(sort=True, filter=lambda p: p.neural_net is not None)
+            parents = random.choices(
+                players_with_nets,
+                weights=range(len(players_with_nets), 0, -1),
+                k=2,
+            )
+            child_nn = make_child(parents[0].neural_net, parents[1].neural_net)
+            newPlayers.append(playerRepository.generateNNAIPlayer(child_nn))
         playerRepository.setPlayers(playerRepository.fetchPlayers() + newPlayers)
         printScoresAndRankings(i, players, amountRemoved, config.gen_worst_quantile)
 

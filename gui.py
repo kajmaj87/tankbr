@@ -38,7 +38,10 @@ class RenderProcessor(esper.Processor):
         w, h = image.get_size()
         box = [pygame.math.Vector2(p) for p in [(0, 0), (w, 0), (w, h), (0, h)]]
         box_rotate = [p.rotate(angle) for p in box]
-        min_x, max_y = min(box_rotate, key=lambda p: p[0])[0], max(box_rotate, key=lambda p: p[1])[1]
+        min_x, max_y = (
+            min(box_rotate, key=lambda p: p[0])[0],
+            max(box_rotate, key=lambda p: p[1])[1],
+        )
         # sin_a, cos_a = math.sin(math.radians(angle)), math.cos(math.radians(angle))
         # min_x, min_y = min([0, sin_a * h, cos_a * w, sin_a * h + cos_a * w]), max(
         #     [0, sin_a * w, -cos_a * h, sin_a * w - cos_a * h]
@@ -48,7 +51,10 @@ class RenderProcessor(esper.Processor):
         pivot_rotate = pivot.rotate(angle)
         pivot_move = pivot_rotate - pivot
         # calculate the upper left origin of the rotated image
-        x, y = pos[0] - originPos[0] + min_x - pivot_move[0], pos[1] - originPos[1] + max_y - pivot_move[1]
+        x, y = (
+            pos[0] - originPos[0] + min_x - pivot_move[0],
+            pos[1] - originPos[1] + max_y - pivot_move[1],
+        )
 
         # get a rotated image
         rotated_image = pygame.transform.rotozoom(image, angle + imageRotation, config.gui_zoom)
@@ -71,7 +77,14 @@ class RenderProcessor(esper.Processor):
         for ent, (rend, position) in self.world.get_components(Renderable, PositionBox):
             pivot = pygame.math.Vector2(position.pivotx, position.pivoty)
             originalPosition = pygame.math.Vector2(position.x, position.y)
-            self.blitRotate(self.window, rend.image, originalPosition, pivot, position.rotation, rend.rotation)
+            self.blitRotate(
+                self.window,
+                rend.image,
+                originalPosition,
+                pivot,
+                position.rotation,
+                rend.rotation,
+            )
 
     def drawLaser(self):
         for ent, (gun, position) in self.world.get_components(Gun, PositionBox):
@@ -79,7 +92,8 @@ class RenderProcessor(esper.Processor):
             sin_a, cos_a = math.sin(math.radians(gunPosition.rotation)), math.cos(math.radians(gunPosition.rotation))
             x, y = self.transformCoordinates(gunPosition.x, gunPosition.y)
             lx, ly = self.transformCoordinates(
-                gunPosition.x + config.game_laser_range * cos_a, gunPosition.y + config.game_laser_range * sin_a
+                gunPosition.x + config.game_laser_range * cos_a,
+                gunPosition.y + config.game_laser_range * sin_a,
             )
             pygame.draw.line(self.window, pygame.Color(255, 0, 0), (x, y), (lx, ly), 2)
 

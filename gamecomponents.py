@@ -1,8 +1,9 @@
 class PlayerInfo:
-    def __init__(self, name, ai=None, score=0):
+    def __init__(self, name, ai=None, neural_net=None, score=0):
         self.name = name
         self.score = score
         self.ai = ai
+        self.neural_net = neural_net
         # will be set by rating component
         self.totalGames = 0
         self.mu = None

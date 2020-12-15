@@ -22,7 +22,9 @@ def test_shouldAddScore(startingScore, pointsGained):
     agent = createAgent(world, startingScore)
     world.add_processor(
         TotalScoreProcessor(
-            GameEndProcessor(turnsLeft=10, ammoTimeout=10), SURVIVOR_SCORE_PER_TURN, LAST_MAN_STANDING_SCORE
+            GameEndProcessor(turnsLeft=10, ammoTimeout=10),
+            SURVIVOR_SCORE_PER_TURN,
+            LAST_MAN_STANDING_SCORE,
         )
     )
     world.create_entity(Score(agent, pointsGained))

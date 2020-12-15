@@ -9,7 +9,10 @@ from gamecomponents import PositionBox, Solid, RangeFinder
 from logic import RangeFindingProcessor
 
 
-@given(xt=st.floats(max_value=1000, min_value=-1000), yt=st.floats(max_value=1000, min_value=-1000))
+@given(
+    xt=st.floats(max_value=1000, min_value=-1000),
+    yt=st.floats(max_value=1000, min_value=-1000),
+)
 def test_shouldFindTargetOnRight(xt, yt):
     world = esper.World()
     finderEntity = world.create_entity()

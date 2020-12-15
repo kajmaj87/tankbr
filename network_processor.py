@@ -1,10 +1,13 @@
+import math
+
 import numpy as np
 
 
 class Model:
-    def __init__(self, parameters, architecture):
+    def __init__(self, parameters, architecture, generation=0):
         self.parameters = parameters
         self.architecture = architecture
+        self.generation = generation
 
     def run(self, x):
         return full_forward_propagation(x, self.parameters, self.architecture)
@@ -21,6 +24,25 @@ def create_model(layers, seed=1, random_scale=0.1):
             }
         )
     return Model(init_layers(architecture, seed, random_scale), architecture)
+
+
+def mutate(child, mutation_rate=0.1, mutation_scale=0.05):
+    for layer_name, layer in child.parameters.items():
+        randomChoices = np.random.uniform(size=layer.shape) > mutation_rate
+        scale = np.exp(np.random.normal(0, mutation_scale, size=layer.shape))
+        child.parameters[layer_name] = layer * (randomChoices * np.ones(layer.shape) + (1 - randomChoices) * scale)
+    return child
+
+
+def make_child(mother, father, mutation_rate=0.1):
+    child_parameters = {}
+    for layer_name, mother_layer in mother.parameters.items():
+        randomChoices = np.random.randint(2, size=mother_layer.shape[0])[:, None]
+        father_layer = father.parameters[layer_name]
+        child_parameters[layer_name] = mother_layer * randomChoices + father_layer * (1 - randomChoices)
+    return mutate(
+        Model(child_parameters, mother.architecture, max(mother.generation, father.generation) + 1), mutation_rate
+    )
 
 
 def init_layers(nn_architecture, seed=1, random_scale=0.1):

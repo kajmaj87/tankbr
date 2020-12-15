@@ -23,7 +23,12 @@ def setupWorld(x=0, y=0, r=0, d=0):
 
 
 # We check for translation invariant here also
-@given(xt=smallFloatStrategy, yt=smallFloatStrategy, rt=angleStrategy, dt=smallFloatStrategy)
+@given(
+    xt=smallFloatStrategy,
+    yt=smallFloatStrategy,
+    rt=angleStrategy,
+    dt=smallFloatStrategy,
+)
 def test_movingAlwaysChangesDistanceRegardlessOfRotationAndPosition(xt, yt, rt, dt):
     world, ent = setupWorld(xt, yt, rt, dt)
     for e, pos in world.get_component(PositionBox):
@@ -31,7 +36,12 @@ def test_movingAlwaysChangesDistanceRegardlessOfRotationAndPosition(xt, yt, rt, 
         assert dt * dt == pytest.approx(d)
 
 
-@given(xt=smallFloatStrategy, yt=smallFloatStrategy, rt=angleStrategy, dt=smallFloatStrategy)
+@given(
+    xt=smallFloatStrategy,
+    yt=smallFloatStrategy,
+    rt=angleStrategy,
+    dt=smallFloatStrategy,
+)
 def test_movingForwardAndBackGoesToStart(xt, yt, rt, dt):
     world, entityToMove = setupWorld(xt, yt, rt, dt)
     world.add_component(entityToMove, Move(-dt))

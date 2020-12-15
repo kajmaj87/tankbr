@@ -101,7 +101,14 @@ def tank(world, startx, starty, playerInfo, bodyRotation=0.0, gunRotation=0.0):
 def tanks(world, players):
     for p in players:
         if p.ai is None:
-            tank(world=world, startx=0, starty=0, bodyRotation=0, gunRotation=0, playerInfo=p)
+            tank(
+                world=world,
+                startx=0,
+                starty=0,
+                bodyRotation=0,
+                gunRotation=0,
+                playerInfo=p,
+            )
         else:
             tank(
                 world=world,

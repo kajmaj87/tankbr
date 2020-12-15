@@ -5,7 +5,10 @@ import hypothesis.strategies as st
 
 
 # We check for translation invariant here also
-@given(xt=st.floats(max_value=1000, min_value=-1000), yt=st.floats(max_value=1000, min_value=-1000))
+@given(
+    xt=st.floats(max_value=1000, min_value=-1000),
+    yt=st.floats(max_value=1000, min_value=-1000),
+)
 def test_shouldFindTargetOnRight(xt, yt):
     world = esper.World()
     finderEntity = world.create_entity()

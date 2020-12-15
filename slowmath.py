@@ -19,7 +19,14 @@ def dist_square(x1, y1, x2, y2):
 # nice calculation at:
 #   https://mathworld.wolfram.com/Circle-LineIntersection.html#:~:text=In%20geometry%2C%20a%20line%20meeting,429).
 def segmentAndCircleIntersect(
-    sourceStartX, sourceStartY, sourceEndX, sourceEndY, startEndDist, targetX, targetY, targetRange
+    sourceStartX,
+    sourceStartY,
+    sourceEndX,
+    sourceEndY,
+    startEndDist,
+    targetX,
+    targetY,
+    targetRange,
 ):
     """Check if a line coming from (sourceX, sourceY) ending at (sourceEndX, sourceEndY) intersects
     a circle of range targetRange centered at (targetX, targetY)

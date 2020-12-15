@@ -26,8 +26,11 @@ ACTIVATION_THRESHOLD = 0.5
 RANDOM_RANGE = 3
 
 
-def neuralAI(seed):
-    model = createModel(RANDOM_RANGE, seed)
+def neuralAI(seed=1, neural_net_model=None):
+    if neural_net_model is None:
+        model = createModel(RANDOM_RANGE, seed)
+    else:
+        model = neural_net_model
 
     def decide(perception, memory):
         if perception.target is not None:
@@ -55,4 +58,4 @@ def neuralAI(seed):
                 commands.append(RotateGun(-config.game_rotation_speed))
         return Decision(commands), None
 
-    return decide
+    return decide, model

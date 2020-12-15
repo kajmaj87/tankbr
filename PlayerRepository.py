@@ -26,11 +26,23 @@ class PlayerRepository:
         }
         return [PlayerInfo(name="Tank-{}".format(aiName), ai=aiBrain) for aiName, aiBrain in nonNNAis.items()]
 
-    def generateNNAIPlayers(self, number):
+    def generateRandomNNAIPlayers(self, number):
         uptoNumber = self.generatedPlayers + number
         nnAis = {i: neuralAI(i) for i in range(self.generatedPlayers, uptoNumber)}
         self.generatedPlayers = uptoNumber
-        return [PlayerInfo(name="Tank-{}".format(aiName), ai=aiBrain) for aiName, aiBrain in nnAis.items()]
+        return [
+            PlayerInfo(name="Tank-0:{}".format(aiName), ai=aiBrain, neural_net=neural_net)
+            for aiName, (aiBrain, neural_net) in nnAis.items()
+        ]
+
+    def generateNNAIPlayer(self, neural_net_model):
+        self.generatedPlayers += 1
+        aiBrain, neural_net = neuralAI(neural_net_model=neural_net_model)
+        return PlayerInfo(
+            name="Tank-{}:{}".format(neural_net.generation, self.generatedPlayers),
+            ai=aiBrain,
+            neural_net=neural_net_model,
+        )
 
     def generatePlayers(self, number, includeAIs=True, includeHumanPlayer=False):
         result = []
@@ -40,7 +52,7 @@ class PlayerRepository:
             result = result + self.genarateAIPlayers()
         self.generatedPlayers += len(result)
         if len(result) < number:
-            result = result + self.generateNNAIPlayers(number - len(result))
+            result = result + self.generateRandomNNAIPlayers(number - len(result))
         return result
 
     def setPlayers(self, players):
@@ -56,11 +68,11 @@ class PlayerRepository:
         self.players = [p for p in self.players if p not in playersToRemove]
         return playersToRemove
 
-    def fetchPlayers(self, sort=False):
+    def fetchPlayers(self, sort=False, filter=lambda x: True):
         if sort:
-            return self.sortPlayers(self.players)
+            return [p for p in self.sortPlayers(self.players) if filter(p)]
         else:
-            return self.players
+            return [p for p in self.players if filter(p)]
 
     def sortPlayers(self, players):
         return sorted(players, key=lambda p: 50 if p.rank is None else -p.rank)
