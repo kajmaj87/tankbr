@@ -7,8 +7,8 @@
 # - [ ] v0.6
 #   - [ ] Multiprocessing
 # - [ ] v0.5
-#   - [ ] Genetic mutations for NN Ai
-#   - [ ] Simple NeuralNet AI
+#   - [X] Genetic mutations for NN Ai
+#   - [X] Simple NeuralNet AI
 # - [X] v0.4
 #   - [X] Tournaments
 #   - [X] Seeding and game end checksums (replay functionality)

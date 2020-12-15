@@ -22,7 +22,7 @@ def createModel(randomRange, seed):
 #    return copyModelWithDifferentConnecions(mother, childConnections)
 
 
-ACTIVATION_THRESHOLD = 0.5
+ACTIVATION_THRESHOLD = 0.8
 RANDOM_RANGE = 3
 
 
